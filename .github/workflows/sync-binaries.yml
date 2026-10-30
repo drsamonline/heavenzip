@@ -1,0 +1,23 @@
+name: sync-binaries
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download ziptastic release binaries
+        run: |
+          mkdir -p bin
+          gh release download -R drsamonline/ziptastic --pattern 'ziptastic*' --dir bin/ --clobber || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit binaries
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bin/ || true
+          git commit -m "bin: sync ziptastic binaries" || true
+          git push

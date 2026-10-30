@@ -1,0 +1,11 @@
+bin/ziptastic
+bin/ziptastic.exe
+bin/srep
+bin/srep.exe
+bin/paq8px
+bin/paq8px.exe
+bin/preflate
+bin/preflate.exe
+*.tmp
+*.bak
+.DS_Store
