@@ -62,12 +62,32 @@ for developer builds.
 | **commercial / closed** | **no** | requires the author's permission |
 | **no licence file** | **no** | all rights reserved — the default under copyright |
 
+## On "FreeArc shipped SREP, so we can too"
+
+This comes up, and it is worth answering precisely because it looks like a
+precedent.
+
+**FreeArc shipped SREP because the same person wrote both.** SREP is Bulat
+Ziganshin's, and so is FreeArc. He was redistributing his own work alongside his own
+work. That is not a third party shipping unlicensed code, and nothing about it
+transfers to anyone else.
+
+**Attribution is not permission.** Under copyright, a work with no licence is *all
+rights reserved* by default. Crediting the author tells a reader who wrote it; it
+does not grant the right to copy it. "Rights reserved to the original owner, used
+here with thanks" is an accurate *description* of the situation and a legally
+inadequate *basis* for shipping it.
+
+If it were otherwise, every commercial program would be redistributable with a
+credit line, which is obviously not the world we live in.
+
 ## The three exceptions, stated plainly
 
-1. **SREP — no licence file.** Not bundleable in any form, under any design. It is
-   the single item on the entire shelf that cannot be redistributed even as a
-   standalone binary. It can be *supported* (heavenzip may spawn it if the user
-   installs it) but never *shipped*.
+1. **SREP — no licence file.** Not bundleable in any form *by us*. It is the single
+   item on the entire shelf that cannot be redistributed even as a standalone binary.
+   It can be *supported* (heavenzip spawns it if the user installs it) but never
+   *shipped*. See `PERMISSIONS.md` for the one route that would change this: asking
+   the author, who has every right to say yes.
 2. **nanozip, WinRK, Document Press — commercial/closed.** Not bundleable without
    the author's written permission.
 3. **Everything with no licence file** — CCM, crush, miniCRUSH, lzari, DeflOpt,
