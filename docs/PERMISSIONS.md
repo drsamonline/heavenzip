@@ -8,15 +8,39 @@ the request to its author. **A tool moves into `tools/` only when its status her
 
 | tool | author | licence today | status |
 |---|---|---|---|
-| **SREP** | Bulat Ziganshin | none (all rights reserved) | **not requested** |
+| **SREP** | Bulat Ziganshin | none (all rights reserved) | **requested 2026-11-01** |
 | **CCM 1.20a** | Christian Martelock | none stated | not requested |
 | **crush / miniCRUSH** | Ilya Muravyov | none stated | not requested |
 | **ashford** | (see source headers) | none stated | not requested |
-| **DeflOpt** | Ben Jos Walbeehm | none stated | not requested |
+| **DeflOpt** | Ben Jos Walbeehm | none stated | **requested 2026-11-01** |
 | **lzari** | Haruhiko Okumura (from *C: The Complete Reference*) | none stated | not requested |
 | **nanozip** | Sami Runsas | closed source | not requested |
 | **WinRK** | Malcolm Taylor | commercial | not requested |
 | **Document Press** | — | commercial | not requested |
+
+## Requested
+
+| tool | to | date | outcome |
+|---|---|---|---|
+| SREP | Bulat.Ziganshin@gmail.com | 2026-11-01 | awaiting reply |
+| DeflOpt | walbeehm@walbeehm.com | 2026-11-01 | awaiting reply |
+
+Note for DeflOpt: Ben Jos Walbeehm's spam filter is deliberately aggressive and he
+asks that the tool name appear in the subject line. The request was sent with
+"DeflOpt" in the subject for that reason.
+
+## Addresses not found
+
+The remaining tools have no verified contact address in their distributions, and
+guessing one is worse than not writing:
+
+| tool | author | where to look |
+|---|---|---|
+| CCM | Christian Martelock | the original ccm120a release page |
+| crush / miniCRUSH | Ilya Muravyov | his GitHub profile |
+| ashford | see source headers | the archive's own readme |
+| nanozip | Sami Runsas | his site |
+| lzari | Haruhiko Okumura | his page at aquila.is.utsunomiya-u.ac.jp |
 
 ## Why asking is worth doing
 
