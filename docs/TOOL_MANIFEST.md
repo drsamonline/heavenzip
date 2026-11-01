@@ -41,8 +41,20 @@ rest of this file turns on.
 | ProcProfile | Windows process profiler | GPL-3 | no |
 | `uFNV.pas` | FNV hash unit (source) | none stated | n/a |
 
-**Only ECT may be redistributed.** Everything else is user-supplied at most, and
-several may not be redistributed at all.
+**Under the bundled design (see `BUNDLING.md`) most of these can ship**, each in its
+own directory with its own licence — but three groups cannot, and they are marked in
+the "bundle?" column below.
+
+| tool | licence | bundle? |
+|---|---|---|
+| ECT | Apache-2.0 | **yes** |
+| paq8px | GPL-2+ | yes, **with source** |
+| ECM / UNECM | GPL | yes, with source |
+| ECM3 | AGPL-3 | yes, with source |
+| Radyx, ProcProfile | GPL-3 | yes, with source (if wanted) |
+| nanozip, WinRK, Document Press | commercial/closed | **no** — needs the author's permission |
+| CCM, crush, miniCRUSH, lzari, DeflOpt, ashford, WABBIE, SplitSat, NexoPacker, MakeLX, decomp.exe, uFNV | **no licence file** | **no** — all rights reserved |
+| **SREP** | **none** | **no, in any form** |
 
 ## A problem with the current profiles
 
