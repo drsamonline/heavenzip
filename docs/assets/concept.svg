@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 180" role="img" aria-label="A diagram of what this repo does">
+  <rect width="320" height="180" rx="14" fill="none" stroke="#9aa3b2" stroke-width="1" opacity=".45"/>
+  <g fill="none" stroke="#7d8797" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="52" y="72" width="46" height="38" rx="6" stroke="#7d8797"/><rect x="137" y="72" width="46" height="38" rx="6" stroke="#7d8797"/><rect x="222" y="72" width="46" height="38" rx="6" stroke="#7d8797" opacity=".7"/><path d="M98 91 h39 M183 91 h39" stroke="#b8862a"/><path d="M130 85 l7 6-7 6 M215 85 l7 6-7 6" stroke="#b8862a"/>
+  </g>
+</svg>
