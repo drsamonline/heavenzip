@@ -1,7 +1,21 @@
 # heavenzip
 
-[![Licence](https://img.shields.io/badge/licence-MIT-3f7a52
+<p>
+  <img alt="live: online" src="docs/assets/badge-live.svg">
+  <img alt="build: phase 0" src="docs/assets/badge-build.svg">
+  <img alt="tests: none yet" src="docs/assets/badge-tests.svg">
+  <img alt="licence: MIT" src="docs/assets/badge-licence.svg">
+  <img alt="offline: no network" src="docs/assets/badge-offline.svg">
+  <img alt="deps: 0 runtime" src="docs/assets/badge-deps.svg">
+</p>
+
 CHCE orchestrator - chains prebuilt binaries
+
+> **Status: phase 0 — the repository is a plan.** `src/`, `bin/` and `tests/`
+> are empty placeholders; there is no `CMakeLists.txt` and nothing to build yet.
+> The badges above are drawn by `tools/badges.py` from what is actually in the
+> tree, so they say so. `AGENT_PROMPT.md` §8 is the phase plan, and phase 0 is
+> the CLI skeleton plus the INI parser.
 
 ## Support
 
