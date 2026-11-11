@@ -1,5 +1,7 @@
 # heavenzip
 
+
+![Screenshot](docs/shot.png)
 <p>
   <img alt="live: online" src="docs/assets/badge-live.svg">
   <img alt="build: phase 0" src="docs/assets/badge-build.svg">
