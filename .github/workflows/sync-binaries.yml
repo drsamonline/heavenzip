@@ -1,23 +1,74 @@
 name: sync-binaries
+
+# heavenzip never builds a compressor; it spawns prebuilt ones. This is how bin/
+# gets filled, and it is the only link between this repository and ziptastic.
+#
+# It used to `|| true` the download and commit whatever appeared, which is how
+# bin/ sat empty for a week after a release that did happen: the fetch failed
+# silently, the commit had nothing to add, and the job reported success. It now
+# fails when there is nothing to fetch, verifies the binary against the release's
+# own SHA256SUMS, keeps only the newest version, and records what it kept.
+
 on:
   workflow_dispatch:
+  schedule:
+    # A release is not an event this repository can hear, so it looks.
+    - cron: '23 5 * * *'
+
 permissions:
   contents: write
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Download ziptastic release binaries
-        run: |
-          mkdir -p bin
-          gh release download -R drsamonline/ziptastic --pattern 'ziptastic*' --dir bin/ --clobber || true
+
+      - name: Download the newest ziptastic release, and verify it
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Commit binaries
         run: |
+          set -euo pipefail
+          tag="$(gh release view -R drsamonline/ziptastic --json tagName --jq .tagName)"
+          test -n "$tag"
+          echo "release: $tag"
+          rm -rf "$RUNNER_TEMP/dl" && mkdir -p "$RUNNER_TEMP/dl"
+          gh release download "$tag" -R drsamonline/ziptastic \
+            --pattern 'ziptastic-*-linux-x86_64' --dir "$RUNNER_TEMP/dl"
+          gh release download "$tag" -R drsamonline/ziptastic \
+            --pattern 'SHA256SUMS' --dir "$RUNNER_TEMP/dl"
+
+          cd "$RUNNER_TEMP/dl"
+          asset="$(ls ziptastic-*-linux-x86_64)"
+          # Verify against the release's own checksums, and against the one line
+          # that names this asset — a SHA256SUMS listing another file proves nothing.
+          grep -q " ${asset}\$" SHA256SUMS
+          sha256sum -c SHA256SUMS --ignore-missing
+
+          mkdir -p "$GITHUB_WORKSPACE/bin"
+          # One engine, not an archive of every engine ever released.
+          find "$GITHUB_WORKSPACE/bin" -maxdepth 1 -name 'ziptastic-*' -delete
+          cp "$asset" "$GITHUB_WORKSPACE/bin/$asset"
+          chmod +x "$GITHUB_WORKSPACE/bin/$asset"
+          {
+            echo "tag      $tag"
+            echo "asset    $asset"
+            echo "sha256   $(sha256sum "$asset" | cut -d' ' -f1)"
+            echo "fetched  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } > "$GITHUB_WORKSPACE/bin/ENGINE"
+
+      - name: The binary runs
+        run: ./bin/ziptastic-*-linux-x86_64 version
+
+      - name: Commit
+        run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add bin/ || true
-          git commit -m "bin: sync ziptastic binaries" || true
+          git add bin/
+          if git diff --cached --quiet; then
+            echo "bin/ already current"
+            exit 0
+          fi
+          git commit -m "bin: sync $(grep '^tag' bin/ENGINE | awk '{print $2}')"
           git push
