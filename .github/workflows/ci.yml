@@ -37,11 +37,22 @@ jobs:
           ./build/heavenzip detect tests/fixtures/image.png
           ./build/heavenzip detect tests/fixtures/archive.zip
           ./build/heavenzip detect tests/fixtures/notes.txt
+          ./build/heavenzip compress tests/fixtures/notes.txt --dry-run
+          ./build/heavenzip compress tests/fixtures/random.bin --profile max-ratio --dry-run
+
+      - name: A profile that does not apply must refuse, not crash
+        run: |
+          # `--profile media` on a text file: exit 1 with the reason, never an abort.
+          if ./build/heavenzip compress tests/fixtures/notes.txt --profile media --dry-run; then
+            echo "::error::a media profile matched a text file"
+            exit 1
+          fi
+          echo "refused with a reason, as it should"
 
       - name: A command that is not built yet must refuse, not succeed
         run: |
-          if ./build/heavenzip compress some-file; then
-            echo "::error::compress exited 0; phase 0 does not implement it and must say so"
+          if ./build/heavenzip compress tests/fixtures/notes.txt; then
+            echo "::error::compress exited 0; phase 3 does not implement it yet"
             exit 1
           fi
           echo "compress refused, as it should"

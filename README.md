@@ -13,12 +13,16 @@
 
 CHCE orchestrator - chains prebuilt binaries
 
-> **Status: phase 1 done.** The CLI skeleton, the INI parser and the content
-> detector are in: 28 unit cases across two suites, plus the phase-0 exit test
-> (`heavenzip validate` exits 0), all running in CI. `validate`, `list-profiles`
-> and `detect` are real; `compress`, `decompress` and `bench` exit 2 and name the
-> phase that owns them, because a command that is not built yet should refuse
-> rather than pretend.
+> **Status: phase 2 done.** The CLI skeleton, the INI parser, the content detector
+> and the pipeline planner are in: 34 unit cases across three suites plus the
+> phase-0 exit test, all in CI. `validate`, `list-profiles`, `detect` and
+> `compress --dry-run` are real; `compress` without `--dry-run`, `decompress` and
+> `bench` exit 2 and name the phase that owns them, because a command that is not
+> built yet should refuse rather than pretend.
+>
+> `compress --dry-run` resolves the profile, refuses one that does not match the
+> file, and prints the argv each step would run — including the intermediate files
+> phase 3 will spawn into. Nothing is executed.
 >
 > Classification is by content, never extension: magic bytes for media and
 > archives, then a printable-ratio test that accepts valid UTF-8, so prose in
