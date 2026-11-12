@@ -34,6 +34,9 @@ jobs:
           ./build/heavenzip version
           ./build/heavenzip validate
           ./build/heavenzip list-profiles
+          ./build/heavenzip detect tests/fixtures/image.png
+          ./build/heavenzip detect tests/fixtures/archive.zip
+          ./build/heavenzip detect tests/fixtures/notes.txt
 
       - name: A command that is not built yet must refuse, not succeed
         run: |
