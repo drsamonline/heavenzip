@@ -3,6 +3,7 @@
 // Phase 0 is the skeleton and the INI parser: `validate` and `list-profiles` are
 // real, and everything that needs a dispatcher says so and exits 2 rather than
 // pretending. A command that is not built yet should be a refusal, not a no-op.
+#include <algorithm>
 #include <filesystem>
 #include <iostream>
 #include <string>
