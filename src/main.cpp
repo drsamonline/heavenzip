@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "heavenzip/detector.hpp"
+#include "heavenzip/dispatcher.hpp"
 #include "heavenzip/ini.hpp"
 
 namespace fs = std::filesystem;
@@ -25,7 +26,7 @@ void usage(std::ostream& out) {
       << "Usage: heavenzip <command> [options]\n"
       << "\n"
       << "Commands:\n"
-      << "  compress <input>        run the pipeline for a file (not in phase 0)\n"
+      << "  compress <input>        plan or run the pipeline for a file\n"
       << "  decompress <input>      reverse a .hzpkg using its manifest (not in phase 0)\n"
       << "  list-profiles           show every profile and its pipeline\n"
       << "  detect <file>           classify a file the way a profile's `detect` would\n"
@@ -36,6 +37,9 @@ void usage(std::ostream& out) {
       << "Options:\n"
       << "  --config <dir>          config directory (default: ./config, then beside the binary)\n"
       << "  --require-bins          validate fails when a profile's binary is missing\n"
+      << "  --profile <name>        profile to use (default: `default` from [profiles])\n"
+      << "  --out <file>            output path (default: <input>.hzpkg)\n"
+      << "  --dry-run               print the argv each step would run, spawn nothing\n"
       << "  --help, -h              this text\n"
       << "  --version, -V           print the version\n";
 }
@@ -143,6 +147,45 @@ int do_list_profiles(const fs::path& config_dir) {
   return 0;
 }
 
+int do_compress(const fs::path& config_dir, const std::string& input, const std::string& profile_name,
+                const std::string& out, bool dry_run) {
+  const MasterConfig master = MasterConfig::load(config_dir / "syc.ini");
+  const std::string name = profile_name.empty() ? master.default_profile : profile_name;
+
+  if (!fs::exists(input)) {
+    std::cerr << kName << ": no such file: " << input << "\n";
+    return 1;
+  }
+  if (std::find(master.available.begin(), master.available.end(), name) == master.available.end()) {
+    std::cerr << kName << ": unknown profile `" << name << "`. Available: ";
+    for (std::size_t i = 0; i < master.available.size(); ++i) {
+      if (i) std::cerr << ", ";
+      std::cerr << master.available[i];
+    }
+    std::cerr << "\n";
+    return 1;
+  }
+
+  const Profile profile = Profile::load(config_dir / "profiles" / (name + ".ini"));
+  const fs::path output = out.empty() ? fs::path(input + ".hzpkg") : fs::path(out);
+  const Plan plan = build_plan(master, profile, name, input, output);
+
+  if (!dry_run) {
+    std::cerr << kName << ": `compress` is phase 3 work — the plan is built and nothing is spawned.\n"
+              << "Re-run with --dry-run to see it.\n";
+    return 2;
+  }
+
+  std::cout << "profile: " << plan.profile << "  (detect = " << plan.detect << ", file is "
+            << to_string(plan.found) << ")\n"
+            << "output:  " << plan.output.string() << "\n"
+            << "manifest: " << plan.manifest.string() << "\n\n";
+  for (const StepCommand& step : plan.steps) {
+    std::cout << "[" << step.step << "]\n  " << step.shell_line() << "\n";
+  }
+  return 0;
+}
+
 int do_detect(const std::string& path) {
   const Detection found = detect_file(path);
   std::cout << path << "\n  class: " << to_string(found.value) << "\n  why:   " << found.why
@@ -156,6 +199,9 @@ int main(int argc, char** argv) {
   std::vector<std::string> args(argv + 1, argv + argc);
   fs::path config_dir;
   bool require_bins = false;
+  bool dry_run = false;
+  std::string profile_name;
+  std::string out;
 
   // --config may appear anywhere; take it out before reading the command.
   for (auto it = args.begin(); it != args.end();) {
@@ -171,6 +217,21 @@ int main(int argc, char** argv) {
     if (*it == "--require-bins") {
       require_bins = true;
       it = args.erase(it);
+      continue;
+    }
+    if (*it == "--dry-run") {
+      dry_run = true;
+      it = args.erase(it);
+      continue;
+    }
+    if (*it == "--profile" || *it == "--out") {
+      const bool is_profile = (*it == "--profile");
+      if (it + 1 == args.end()) {
+        std::cerr << kName << ": " << *it << " needs a value\n";
+        return 2;
+      }
+      (is_profile ? profile_name : out) = *(it + 1);
+      it = args.erase(it, it + 2);
       continue;
     }
     ++it;
@@ -207,8 +268,20 @@ int main(int argc, char** argv) {
       return do_detect(args[1]);
     }
     if (command == "list-profiles") return do_list_profiles(config_dir);
-    if (command == "compress" || command == "decompress" || command == "bench") return not_yet(command);
+    if (command == "compress") {
+      if (args.size() < 2) {
+        std::cerr << kName << ": compress needs an input file\n";
+        return 2;
+      }
+      return do_compress(config_dir, args[1], profile_name, out, dry_run);
+    }
+    if (command == "decompress" || command == "bench") return not_yet(command);
   } catch (const IniError& error) {
+    std::cerr << kName << ": " << error.what() << "\n";
+    return 1;
+  } catch (const std::exception& error) {
+    // A profile that does not apply is a user mistake, not a crash: exit 1 with
+    // the reason rather than letting the exception terminate the process.
     std::cerr << kName << ": " << error.what() << "\n";
     return 1;
   }
