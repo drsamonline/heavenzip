@@ -1,7 +1,9 @@
 // pipeline.cpp — run the plan, then write the thing that undoes it.
 #include "heavenzip/pipeline.hpp"
 
+#include <algorithm>
 #include <cstdio>
+#include <cctype>
 #include <fstream>
 #include <map>
 #include <memory>
