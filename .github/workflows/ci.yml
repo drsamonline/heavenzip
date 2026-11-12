@@ -66,13 +66,17 @@ jobs:
           fi
           echo "refused with a reason, as it should"
 
-      - name: A command that is not built yet must refuse, not succeed
+      - name: A payload without its manifest must refuse, not guess
+        # Every command is implemented now, so the refusal worth testing is the one
+        # that will still exist in a year: decompress cannot undo what it has no
+        # record of.
         run: |
-          if ./build/heavenzip bench tests/fixtures; then
-            echo "::error::bench exited 0; phase 6 does not implement it yet"
+          cp tests/fixtures/notes.txt /tmp/orphan.txt.hzpkg
+          if ./build/heavenzip decompress /tmp/orphan.txt.hzpkg --out /tmp/x; then
+            echo "::error::decompress exited 0 with no manifest"
             exit 1
           fi
-          echo "bench refused, as it should"
+          echo "refused, as it should"
 
       - name: Bench over the fixtures
         # With the engine fetched above, the shipped `text` profile measures instead
