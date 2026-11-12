@@ -13,11 +13,12 @@
 
 CHCE orchestrator - chains prebuilt binaries
 
-> **Status: phase 0 — the repository is a plan.** `src/`, `bin/` and `tests/`
-> are empty placeholders; there is no `CMakeLists.txt` and nothing to build yet.
-> The badges above are drawn by `tools/badges.py` from what is actually in the
-> tree, so they say so. `AGENT_PROMPT.md` §8 is the phase plan, and phase 0 is
-> the CLI skeleton plus the INI parser.
+> **Status: phase 0 done.** `CMakeLists.txt`, `src/main.cpp` and the INI parser in
+> `src/orchestrator/ini.cpp` are in, with 17 unit cases and the phase-0 exit test
+> (`heavenzip validate` exits 0) running in CI. `validate` and `list-profiles` are
+> real; `compress`, `decompress` and `bench` exit 2 and say they are phase 1–3
+> work, because a command that is not built yet should refuse rather than pretend.
+> `bin/` holds the ziptastic release binary that `sync-binaries` fetched.
 
 ## Support
 
