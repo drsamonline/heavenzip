@@ -236,6 +236,15 @@ Profile Profile::parse(const std::string& text, const std::string& name_for_erro
   }
   profile.pipeline = split_list(require(*route, "pipeline", where), where, "pipeline");
 
+  for (std::size_t i = 0; i < profile.pipeline.size(); ++i) {
+    for (std::size_t j = i + 1; j < profile.pipeline.size(); ++j) {
+      if (profile.pipeline[i] == profile.pipeline[j]) {
+        fail(where, "`pipeline` names step `" + profile.pipeline[i] +
+                        "` twice; a pipeline is linear and a repeated step is a cycle");
+      }
+    }
+  }
+
   for (const auto& name : profile.pipeline) {
     const IniSection* section = file.find(name);
     if (section == nullptr) {
@@ -245,9 +254,12 @@ Profile Profile::parse(const std::string& text, const std::string& name_for_erro
     step.name = name;
     if (const std::string* bin = section->find("bin"); bin != nullptr) step.bin = *bin;
     if (const std::string* args = section->find("args"); args != nullptr) step.args = *args;
+    if (const std::string* reverse = section->find("reverse_args"); reverse != nullptr)
+      step.reverse_args = *reverse;
     for (const auto& [key, value] : section->entries) {
-      if (key != "bin" && key != "args") {
-        fail(where, "[" + name + "] has unknown key `" + key + "` (only bin and args)");
+      if (key != "bin" && key != "args" && key != "reverse_args") {
+        fail(where, "[" + name + "] has unknown key `" + key +
+                        "` (bin, args and reverse_args are the only ones)");
       }
     }
     profile.steps.push_back(std::move(step));

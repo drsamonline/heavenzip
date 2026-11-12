@@ -1,6 +1,7 @@
 // dispatcher.cpp — the plan for a pipeline. Phase 3 adds the spawn.
 #include "heavenzip/dispatcher.hpp"
 
+#include <cstdlib>
 #include <sstream>
 #include <stdexcept>
 
@@ -30,6 +31,22 @@ std::string StepCommand::shell_line() const {
     line += quote(token);
   }
   return line;
+}
+
+bool program_available(const std::string& program) {
+  if (program.empty()) return false;
+  if (program.find('/') != std::string::npos || program.find('\\') != std::string::npos) {
+    return fs::exists(program);
+  }
+  const char* path = std::getenv("PATH");
+  if (path == nullptr) return false;
+  std::stringstream stream(path);
+  std::string directory;
+  while (std::getline(stream, directory, ':')) {
+    if (directory.empty()) continue;
+    if (fs::exists(fs::path(directory) / program)) return true;
+  }
+  return false;
 }
 
 Plan build_plan(const MasterConfig& master, const Profile& profile, const std::string& profile_name,
@@ -71,6 +88,19 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     // The step's own output argument: every compressor in the family writes beside
     // its input or takes an explicit name, so it is passed explicitly.
     command.argv.push_back(next.string());
+
+    // The reverse of a step: the same binary, its own reverse arguments when the
+    // profile gives them, then what it produced and what it consumed. A tool whose
+    // decompress verb is not `d` says so with `reverse_args`, and the manifest
+    // records the result rather than a convention the reader has to guess.
+    command.reverse.push_back(command.program);
+    if (!step.reverse_args.empty()) {
+      for (const std::string& token : split_args(step.reverse_args)) command.reverse.push_back(token);
+    } else {
+      command.reverse.push_back("d");
+    }
+    command.reverse.push_back(next.string());   // produced
+    command.reverse.push_back(current.string()); // consumed
 
     plan.steps.push_back(std::move(command));
     current = next;

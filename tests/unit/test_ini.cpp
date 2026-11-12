@@ -157,6 +157,19 @@ void test_unknown_key_in_step_is_an_error() {
       "unknown key");
 }
 
+void test_reverse_args_are_parsed() {
+  const Profile profile = Profile::parse(
+      "[route]\ndetect = any\npipeline = one\n[one]\nargs = e -9\nreverse_args = d\n", "inline");
+  CHECK(profile.steps[0].args == "e -9");
+  CHECK(profile.steps[0].reverse_args == "d");
+}
+
+void test_a_repeated_step_is_a_cycle() {
+  EXPECT_ERROR(
+      [] { Profile::parse("[route]\ndetect = any\npipeline = one,two,one\n[one]\n[two]\n", "inline"); },
+      "twice");
+}
+
 void test_step_without_args_or_bin_is_allowed_but_has_neither() {
   const Profile profile = Profile::parse(
       "[route]\ndetect = any\npipeline = one\n[one]\n", "inline");
@@ -208,6 +221,8 @@ int main(int argc, char** argv) {
       {"pipeline names existing sections", test_pipeline_must_name_existing_sections},
       {"detect value checked", test_detect_value_is_checked},
       {"unknown step key", test_unknown_key_in_step_is_an_error},
+      {"reverse_args parsed", test_reverse_args_are_parsed},
+      {"repeated step is a cycle", test_a_repeated_step_is_a_cycle},
       {"step with neither bin nor args", test_step_without_args_or_bin_is_allowed_but_has_neither},
       {"split_args quotes", test_split_args_keeps_quoted_groups},
       {"split_args empty", test_split_args_of_empty_value_is_empty},

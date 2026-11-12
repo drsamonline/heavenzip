@@ -86,6 +86,34 @@ void test_a_step_without_bin_uses_ziptastic_bin() {
   CHECK(plan.steps[0].program == master().ziptastic_bin);
 }
 
+void test_reverse_uses_reverse_args_when_given() {
+  const Profile custom = Profile::parse(
+      "[route]\ndetect = any\npipeline = only\n[only]\nbin = /bin/sh\nargs = c\n"
+      "reverse_args = decompress --force\n",
+      "inline");
+  const Plan plan = build_plan(master(), custom, "custom", g_fixtures / "notes.txt",
+                               g_fixtures / "z.hzpkg");
+  const std::vector<std::string>& reverse = plan.steps[0].reverse;
+  CHECK(reverse.size() == 5);
+  CHECK(reverse[0] == "/bin/sh");
+  CHECK(reverse[1] == "decompress");
+  CHECK(reverse[2] == "--force");
+  CHECK(reverse[3] == (g_fixtures / "z.hzpkg").string());   // produced
+  CHECK(reverse[4] == (g_fixtures / "notes.txt").string()); // consumed
+}
+
+void test_reverse_defaults_to_the_d_verb() {
+  const Plan plan = build_plan(master(), profile("text"), "text", g_fixtures / "notes.txt",
+                               g_fixtures / "w.hzpkg");
+  CHECK(plan.steps[0].reverse[1] == "d");
+}
+
+void test_program_availability_is_checked() {
+  CHECK(program_available("/bin/sh"));
+  CHECK(!program_available("/nonexistent/binary"));
+  CHECK(!program_available("a-binary-that-does-not-exist-anywhere"));
+}
+
 void test_shell_line_quotes_spaces() {
   StepCommand command;
   command.step = "s";
@@ -124,6 +152,9 @@ int main(int argc, char** argv) {
       {"media never matches text", test_a_media_profile_never_matches_a_text_file},
       {"any matches binary", test_any_matches_a_binary_file},
       {"step without bin uses ziptastic_bin", test_a_step_without_bin_uses_ziptastic_bin},
+      {"reverse honours reverse_args", test_reverse_uses_reverse_args_when_given},
+      {"reverse defaults to d", test_reverse_defaults_to_the_d_verb},
+      {"program availability", test_program_availability_is_checked},
       {"shell line quotes spaces", test_shell_line_quotes_spaces},
       {"single step writes to output", test_single_step_plan_writes_straight_to_output},
   };
