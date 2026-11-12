@@ -13,15 +13,11 @@
 
 CHCE orchestrator - chains prebuilt binaries
 
-> **Status: phase 4 done.** The CLI, the INI parser, the detector, the planner, the
-> dispatcher and the manifest are in: 34 unit cases across three suites, a
-> round-trip integration test with stubs, a round trip through the **real**
-> ziptastic release binary, and the phase-0 exit test — 7 ctest suites, all in CI.
-> `compress` spawns the pipeline and writes both output files; `decompress` reads
-> the manifest and runs it backwards; `bench` is phase 6 and says so.
->
-> Measured in CI on every push: a 73,600-byte text file packs to 187 bytes through
-> `ziptastic-1.4.2 -9` and comes back byte-exact.
+> **Status: phase 7 done — the plan's phases are complete.** CLI, INI parser,
+> detector, planner, dispatcher, manifest, external-process tier, bench harness and
+> the two reference documents. 8 ctest suites in CI, including a round trip through
+> the real ziptastic release binary and a test that the worked example in
+> `docs/PROFILES.md` actually works.
 >
 > Classification is by content, never extension: magic bytes for media and
 > archives, then a printable-ratio test that accepts valid UTF-8, so prose in
@@ -29,13 +25,39 @@ CHCE orchestrator - chains prebuilt binaries
 > bounded at 64 KiB.
 >
 > `compress` writes `<input>.hzpkg` and `<input>.hzpipeline`; the manifest records
-> every step's argv **and** the command that reverses it, so `decompress` never has
-> to guess. A step that fails stops the run, keeps its logs, and the manifest is
-> still written — with `"ok": false` and the failing step named.
->
-> `bin/` holds the ziptastic release binary that `sync-binaries` fetched; the
-> shipped profiles name Windows executables, so `validate` reports them as warnings
-> until a sync on that platform.
+> every step's argv **and** the command that reverses it. A step that fails stops
+> the run, keeps its logs, and the manifest is still written with `"ok": false`. A
+> missing binary is refused before the input is touched.
+
+## Quick start
+
+```bash
+# 1. get an engine into bin/ (the sync-binaries workflow does this in CI)
+gh release download -R drsamonline/ziptastic --pattern 'ziptastic-*-linux-x86_64' --dir bin/
+
+# 2. see what the shipped profiles would do
+heavenzip validate
+heavenzip list-profiles
+
+# 3. plan, then run
+heavenzip compress notes.txt --dry-run
+heavenzip compress notes.txt
+heavenzip decompress notes.txt.hzpkg --out restored.txt
+
+# 4. measure every profile against a corpus
+heavenzip bench tests/fixtures/
+```
+
+## Profile catalog
+
+| Profile | detect | Pipeline | What it is for |
+|---|---|---|---|
+| `text` | `text` | srep → ziptastic `-c lzma -9` | prose, logs, source |
+| `media` | `media` | preflate → ziptastic `-c brotli -q 11` | photos, PDFs, audio |
+| `max-ratio` | `any` | srep `-m5f` → paq8px `-8` | last resort, slow and small |
+
+Writing another one is a file, not a patch: [docs/PROFILES.md](docs/PROFILES.md).
+How a payload is made and undone: [docs/PIPELINE.md](docs/PIPELINE.md).
 
 ## Support
 

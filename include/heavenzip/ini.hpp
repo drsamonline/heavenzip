@@ -51,8 +51,9 @@ struct IniFile {
 // One pipeline step: `[step1] bin = ... args = ...`.
 struct Step {
   std::string name;
-  std::string bin;   // empty means "use ziptastic_bin from [general]"
-  std::string args;  // passed verbatim, split on whitespace
+  std::string bin;          // empty means "use ziptastic_bin from [general]"
+  std::string args;         // passed verbatim, split on whitespace
+  std::string reverse_args; // optional; empty means the `<bin> d` convention
 };
 
 struct Profile {

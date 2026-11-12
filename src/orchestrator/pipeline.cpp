@@ -204,17 +204,6 @@ std::string number(double value) {
   return out.str();
 }
 
-// The reverse of `<bin> <args...> <consumed> <produced>` is `<bin> d <produced>
-// <consumed>`. Recorded per step so a reader never has to infer it.
-std::vector<std::string> reverse_of(const StepCommand& command) {
-  std::vector<std::string> reverse;
-  reverse.push_back(command.argv.front());          // program
-  reverse.push_back("d");                          // verb: decompress
-  reverse.push_back(command.argv.back());          // what the step produced
-  reverse.push_back(command.argv[command.argv.size() - 2]);  // what it consumed
-  return reverse;
-}
-
 std::string array_of(const std::vector<std::string>& values) {
   std::string out = "[";
   for (std::size_t i = 0; i < values.size(); ++i) {
@@ -293,7 +282,7 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome) {
     const StepOutcome* step = i < outcome.steps.size() ? &outcome.steps[i] : nullptr;
     json << "    {\"step\": \"" << escape(command.step) << "\", "
          << "\"argv\": " << array_of(command.argv) << ", "
-         << "\"reverse\": " << array_of(reverse_of(command)) << ", "
+         << "\"reverse\": " << array_of(command.reverse) << ", "
          << "\"exit_code\": " << (step ? step->exit_code : -1) << ", "
          << "\"seconds\": " << number(step ? step->seconds : 0.0) << "}";
     if (i + 1 < plan.steps.size()) json << ",";

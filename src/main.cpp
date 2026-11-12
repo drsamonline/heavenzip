@@ -4,6 +4,7 @@
 // real, and everything that needs a dispatcher says so and exits 2 rather than
 // pretending. A command that is not built yet should be a refusal, not a no-op.
 #include <algorithm>
+#include <cstdio>
 #include <filesystem>
 #include <iostream>
 #include <string>
@@ -32,7 +33,7 @@ void usage(std::ostream& out) {
       << "  list-profiles           show every profile and its pipeline\n"
       << "  detect <file>           classify a file the way a profile's `detect` would\n"
       << "  validate                parse the master config and every profile\n"
-      << "  bench <input>           time the pipeline (not in phase 0)\n"
+      << "  bench <dir>             run every profile over a corpus, print ratio and time\n"
       << "  version                 print the version\n"
       << "\n"
       << "Options:\n"
@@ -43,13 +44,6 @@ void usage(std::ostream& out) {
       << "  --dry-run               print the argv each step would run, spawn nothing\n"
       << "  --help, -h              this text\n"
       << "  --version, -V           print the version\n";
-}
-
-int not_yet(const std::string& command) {
-  std::cerr << kName << ": `" << command << "` is not implemented in phase 0.\n"
-            << "Phase 0 is the CLI skeleton and the INI parser; `validate` and `list-profiles` work.\n"
-            << "See AGENT_PROMPT.md section 8.\n";
-  return 2;
 }
 
 int do_validate(const fs::path& config_dir, bool require_bins) {
@@ -113,7 +107,7 @@ int do_validate(const fs::path& config_dir, bool require_bins) {
     }
     for (const Step& step : profile.steps) {
       const std::string bin = step.bin.empty() ? master.ziptastic_bin : step.bin;
-      if (fs::exists(bin)) continue;
+      if (program_available(bin)) continue;
       std::cout << "  warn  " << name << "/" << step.name << ": `" << bin
                 << "` is not present" << (require_bins ? "" : " (run sync-binaries, or pass --require-bins to fail)")
                 << "\n";
@@ -182,6 +176,18 @@ int do_compress(const fs::path& config_dir, const std::string& input, const std:
     return 0;
   }
 
+  // Pre-flight: every program must be resolvable before the first step runs. A
+  // missing paq8px should be a sentence, not a step that failed with exit 127
+  // halfway through a chain that has already rewritten its intermediates.
+  for (const StepCommand& step : plan.steps) {
+    if (program_available(step.program)) continue;
+    std::cerr << kName << ": step `" << step.step << "` needs `" << step.program
+              << "`, which is not on PATH and does not exist.\n"
+              << "Nothing was run and the input is untouched. Place the binary in bin/, "
+                 "or run the sync-binaries workflow.\n";
+    return 1;
+  }
+
   const RunOutcome outcome = run_plan(plan);
   write_manifest(plan, outcome);
 
@@ -236,6 +242,73 @@ int do_decompress(const std::string& container, const std::string& out) {
     std::cout << "  " << step.step << "  exit " << step.exit_code << "  " << step.seconds << "s\n";
   }
   return 0;
+}
+
+int do_bench(const fs::path& config_dir, const fs::path& corpus, bool require_bins) {
+  const MasterConfig master = MasterConfig::load(config_dir / "syc.ini");
+  std::vector<fs::path> files;
+  for (const fs::directory_entry& entry : fs::directory_iterator(corpus)) {
+    if (entry.is_regular_file()) files.push_back(entry.path());
+  }
+  std::sort(files.begin(), files.end());
+  if (files.empty()) {
+    std::cerr << kName << ": no files in " << corpus << "\n";
+    return 1;
+  }
+
+  std::cout << "profile      file                       class    in        out       ratio   time\n";
+  std::cout << "-----------------------------------------------------------------------------------\n";
+
+  int failures = 0;
+  for (const std::string& name : master.available) {
+    const Profile profile = Profile::load(config_dir / "profiles" / (name + ".ini"));
+    for (const fs::path& file : files) {
+      const Detection found = detect_file(file);
+      if (!matches(profile.detect, found.value)) continue;
+
+      bool available = true;
+      for (const Step& step : profile.steps) {
+        const std::string bin = step.bin.empty() ? master.ziptastic_bin : step.bin;
+        if (!program_available(bin)) available = false;
+      }
+      if (!available) {
+        if (require_bins) ++failures;
+        std::printf("%-12s %-26s %-8s %-9s %-9s %-7s %s\n", name.c_str(),
+                    file.filename().string().c_str(), to_string(found.value).c_str(), "-", "-", "-",
+                    "skipped (bin missing)");
+        continue;
+      }
+
+      const fs::path out = fs::temp_directory_path() / ("bench-" + name + "-" + file.filename().string() + ".hzpkg");
+      try {
+        const Plan plan = build_plan(master, profile, name, file, out);
+        const RunOutcome outcome = run_plan(plan);
+        if (!outcome.ok) {
+          ++failures;
+          std::printf("%-12s %-26s %-8s %-9s %-9s %-7s %s\n", name.c_str(),
+                      file.filename().string().c_str(), to_string(found.value).c_str(), "-", "-", "-",
+                      ("failed at " + outcome.failed_step).c_str());
+          continue;
+        }
+        const auto raw = static_cast<double>(fs::file_size(file));
+        const auto packed = static_cast<double>(fs::file_size(out));
+        double seconds = 0;
+        for (const StepOutcome& step : outcome.steps) seconds += step.seconds;
+        char ratio[16];
+        std::snprintf(ratio, sizeof ratio, "%.1f%%", packed * 100.0 / raw);
+        std::printf("%-12s %-26s %-8s %-9.0f %-9.0f %-7s %.2fs\n", name.c_str(),
+                    file.filename().string().c_str(), to_string(found.value).c_str(), raw, packed,
+                    ratio, seconds);
+        fs::remove(out);
+      } catch (const std::exception& error) {
+        ++failures;
+        std::printf("%-12s %-26s %-8s %-9s %-9s %-7s %s\n", name.c_str(),
+                    file.filename().string().c_str(), to_string(found.value).c_str(), "-", "-", "-",
+                    error.what());
+      }
+    }
+  }
+  return failures == 0 ? 0 : 1;
 }
 
 int do_detect(const std::string& path) {
@@ -334,7 +407,13 @@ int main(int argc, char** argv) {
       }
       return do_decompress(args[1], out);
     }
-    if (command == "bench") return not_yet(command);
+    if (command == "bench") {
+      if (args.size() < 2) {
+        std::cerr << kName << ": bench needs a directory\n";
+        return 2;
+      }
+      return do_bench(config_dir, args[1], require_bins);
+    }
   } catch (const IniError& error) {
     std::cerr << kName << ": " << error.what() << "\n";
     return 1;

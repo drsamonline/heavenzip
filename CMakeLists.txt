@@ -60,6 +60,12 @@ if(HEAVENZIP_BUILD_TESTS)
                    "$<TARGET_FILE:heavenzip>" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
                    "${CMAKE_CURRENT_SOURCE_DIR}")
 
+  # Phase 7's exit test: the worked example in docs/PROFILES.md must work.
+  add_test(NAME integration.profile-from-docs
+           COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/profile-from-docs.sh"
+                   "$<TARGET_FILE:heavenzip>" "${CMAKE_CURRENT_SOURCE_DIR}"
+                   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
+
   add_test(NAME integration.roundtrip
            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/roundtrip.sh"
                    "$<TARGET_FILE:heavenzip>" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")

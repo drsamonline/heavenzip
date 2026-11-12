@@ -17,7 +17,8 @@ namespace heavenzip {
 struct StepCommand {
   std::string step;     // section name from the profile
   std::string program;  // step's bin, or ziptastic_bin from [general]
-  std::vector<std::string> argv;  // program first, then its arguments
+  std::vector<std::string> argv;      // program first, then its arguments
+  std::vector<std::string> reverse;   // the command that undoes this step
 
   // Shell-quoted for humans: `bin/ziptastic.exe -c lzma -9 "in put.txt"`.
   std::string shell_line() const;
@@ -32,6 +33,10 @@ struct Plan {
   std::filesystem::path manifest;  // <input>.hzpipeline
   std::vector<StepCommand> steps;
 };
+
+// True when the program can be found: an explicit path must exist, a bare name is
+// looked up on PATH. Used by the pre-flight check and by `validate`.
+bool program_available(const std::string& program);
 
 // Resolve the profile and build the plan. Throws std::runtime_error when the
 // profile does not match the file, or when a step's program cannot be resolved.

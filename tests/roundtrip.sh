@@ -100,4 +100,39 @@ fi
 grep -q 'step `first` failed with exit 3' "$WORK/err.txt" || { echo "FAIL: the failure did not name the step and exit"; cat "$WORK/err.txt"; exit 1; }
 grep -q '"ok": false' "$WORK/input.txt.hzpipeline" || { echo "FAIL: the manifest does not record the failure"; exit 1; }
 
-echo "ok: compress -> decompress byte-exact, manifest written, failure named"
+echo "-- a missing binary must refuse before touching the input"
+cat > "$WORK/config/profiles/two-step.ini" <<INI
+[route]
+detect = text
+pipeline = first
+[first]
+bin = $WORK/bin/gone
+args = c
+INI
+rm -f "$WORK/input.txt.hzpkg" "$WORK/input.txt.hzpipeline"
+if "$BIN" compress "$WORK/input.txt" --config "$WORK/config" >/dev/null 2>"$WORK/err2.txt"; then
+  echo "FAIL: a missing binary exited 0"
+  exit 1
+fi
+grep -q 'is not on PATH' "$WORK/err2.txt" || { echo "FAIL: the missing binary was not named"; cat "$WORK/err2.txt"; exit 1; }
+test ! -f "$WORK/input.txt.hzpkg" || { echo "FAIL: it wrote output before refusing"; exit 1; }
+cmp "$WORK/original.txt" "$WORK/input.txt" || { echo "FAIL: it modified the input"; exit 1; }
+
+echo "-- bench prints a table and measures"
+cat > "$WORK/config/profiles/two-step.ini" <<INI
+[route]
+detect = text
+pipeline = first
+[first]
+bin = $WORK/bin/srep
+args = c
+INI
+mkdir -p "$WORK/corpus"
+cp "$WORK/original.txt" "$WORK/corpus/a.txt"
+"$BIN" bench "$WORK/corpus" --config "$WORK/config" > "$WORK/bench.txt" 2>&1 || {
+  echo "FAIL: bench exited non-zero"; cat "$WORK/bench.txt"; exit 1; }
+grep -q 'ratio' "$WORK/bench.txt" || { echo "FAIL: bench printed no header"; cat "$WORK/bench.txt"; exit 1; }
+grep -qE '^two-step .*[0-9]+%' "$WORK/bench.txt" || { echo "FAIL: bench printed no measured row"; cat "$WORK/bench.txt"; exit 1; }
+tail -1 "$WORK/bench.txt"
+
+echo "ok: compress -> decompress byte-exact, manifest written, failure named, preflight refuses, bench measures"

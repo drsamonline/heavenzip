@@ -74,6 +74,11 @@ jobs:
           fi
           echo "bench refused, as it should"
 
+      - name: Bench over the fixtures
+        # With the engine fetched above, the shipped `text` profile measures instead
+        # of skipping; the others still name the binaries they need.
+        run: ./build/heavenzip bench tests/fixtures/ || true
+
       - name: The round trip, called the way a user calls it
         # ctest runs tests/roundtrip.sh too; this is the same thing without ctest in
         # the middle, so a failure here points at the CLI rather than the harness.
