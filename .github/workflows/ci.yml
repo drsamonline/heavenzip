@@ -51,8 +51,13 @@ jobs:
 
       - name: A command that is not built yet must refuse, not succeed
         run: |
-          if ./build/heavenzip compress tests/fixtures/notes.txt; then
-            echo "::error::compress exited 0; phase 3 does not implement it yet"
+          if ./build/heavenzip bench tests/fixtures; then
+            echo "::error::bench exited 0; phase 6 does not implement it yet"
             exit 1
           fi
-          echo "compress refused, as it should"
+          echo "bench refused, as it should"
+
+      - name: The round trip, called the way a user calls it
+        # ctest runs tests/roundtrip.sh too; this is the same thing without ctest in
+        # the middle, so a failure here points at the CLI rather than the harness.
+        run: bash tests/roundtrip.sh ./build/heavenzip tests/fixtures
