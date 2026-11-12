@@ -13,22 +13,26 @@
 
 CHCE orchestrator - chains prebuilt binaries
 
-> **Status: phase 2 done.** The CLI skeleton, the INI parser, the content detector
-> and the pipeline planner are in: 34 unit cases across three suites plus the
-> phase-0 exit test, all in CI. `validate`, `list-profiles`, `detect` and
-> `compress --dry-run` are real; `compress` without `--dry-run`, `decompress` and
-> `bench` exit 2 and name the phase that owns them, because a command that is not
-> built yet should refuse rather than pretend.
->
-> `compress --dry-run` resolves the profile, refuses one that does not match the
-> file, and prints the argv each step would run — including the intermediate files
-> phase 3 will spawn into. Nothing is executed.
+> **Status: phase 3 done.** The CLI, the INI parser, the detector, the planner and
+> the dispatcher are in: 34 unit cases across three suites, a round-trip
+> integration test with stub binaries, and the phase-0 exit test — 6 ctest suites,
+> all in CI. `compress` spawns the pipeline and writes both output files;
+> `decompress` reads the manifest and runs it backwards; `bench` is phase 6 and
+> says so.
 >
 > Classification is by content, never extension: magic bytes for media and
 > archives, then a printable-ratio test that accepts valid UTF-8, so prose in
 > Devanagari is text and a ZIP renamed to `.txt` is still an archive. The read is
-> bounded at 64 KiB, because heavenzip may be pointed at a multi-gigabyte image.
-> `bin/` holds the ziptastic release binary that `sync-binaries` fetched.
+> bounded at 64 KiB.
+>
+> `compress` writes `<input>.hzpkg` and `<input>.hzpipeline`; the manifest records
+> every step's argv **and** the command that reverses it, so `decompress` never has
+> to guess. A step that fails stops the run, keeps its logs, and the manifest is
+> still written — with `"ok": false` and the failing step named.
+>
+> `bin/` holds the ziptastic release binary that `sync-binaries` fetched; the
+> shipped profiles name Windows executables, so `validate` reports them as warnings
+> until a sync on that platform.
 
 ## Support
 

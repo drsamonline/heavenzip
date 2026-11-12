@@ -18,7 +18,9 @@ option(HEAVENZIP_BUILD_TESTS "Build the test suite" ON)
 add_library(heavenzip_core STATIC
   src/orchestrator/ini.cpp
   src/orchestrator/detector.cpp
-  src/orchestrator/dispatcher.cpp)
+  src/orchestrator/dispatcher.cpp
+  src/orchestrator/runner.cpp
+  src/orchestrator/pipeline.cpp)
 target_include_directories(heavenzip_core PUBLIC include)
 target_compile_definitions(heavenzip_core PUBLIC HEAVENZIP_VERSION="${PROJECT_VERSION}")
 
@@ -50,4 +52,9 @@ if(HEAVENZIP_BUILD_TESTS)
   # must succeed against the config this repository ships.
   add_test(NAME cli.validate COMMAND heavenzip validate --config "${CMAKE_CURRENT_SOURCE_DIR}/config")
   add_test(NAME cli.version COMMAND heavenzip version)
+
+  # The phase-3 exit test: compress with stub binaries, decompress, compare bytes.
+  add_test(NAME integration.roundtrip
+           COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/roundtrip.sh"
+                   "$<TARGET_FILE:heavenzip>" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
 endif()

@@ -11,6 +11,7 @@
 
 #include "heavenzip/detector.hpp"
 #include "heavenzip/dispatcher.hpp"
+#include "heavenzip/pipeline.hpp"
 #include "heavenzip/ini.hpp"
 
 namespace fs = std::filesystem;
@@ -27,7 +28,7 @@ void usage(std::ostream& out) {
       << "\n"
       << "Commands:\n"
       << "  compress <input>        plan or run the pipeline for a file\n"
-      << "  decompress <input>      reverse a .hzpkg using its manifest (not in phase 0)\n"
+      << "  decompress <input>      reverse a .hzpkg using its .hzpipeline manifest\n"
       << "  list-profiles           show every profile and its pipeline\n"
       << "  detect <file>           classify a file the way a profile's `detect` would\n"
       << "  validate                parse the master config and every profile\n"
@@ -170,18 +171,69 @@ int do_compress(const fs::path& config_dir, const std::string& input, const std:
   const fs::path output = out.empty() ? fs::path(input + ".hzpkg") : fs::path(out);
   const Plan plan = build_plan(master, profile, name, input, output);
 
-  if (!dry_run) {
-    std::cerr << kName << ": `compress` is phase 3 work — the plan is built and nothing is spawned.\n"
-              << "Re-run with --dry-run to see it.\n";
-    return 2;
+  if (dry_run) {
+    std::cout << "profile: " << plan.profile << "  (detect = " << plan.detect << ", file is "
+              << to_string(plan.found) << ")\n"
+              << "output:  " << plan.output.string() << "\n"
+              << "manifest: " << plan.manifest.string() << "\n\n";
+    for (const StepCommand& step : plan.steps) {
+      std::cout << "[" << step.step << "]\n  " << step.shell_line() << "\n";
+    }
+    return 0;
   }
 
-  std::cout << "profile: " << plan.profile << "  (detect = " << plan.detect << ", file is "
-            << to_string(plan.found) << ")\n"
-            << "output:  " << plan.output.string() << "\n"
-            << "manifest: " << plan.manifest.string() << "\n\n";
-  for (const StepCommand& step : plan.steps) {
-    std::cout << "[" << step.step << "]\n  " << step.shell_line() << "\n";
+  const RunOutcome outcome = run_plan(plan);
+  write_manifest(plan, outcome);
+
+  if (!outcome.ok) {
+    std::cerr << kName << ": step `" << outcome.failed_step << "` failed with exit "
+              << outcome.exit_code << "\n";
+    if (!outcome.detail.empty()) std::cerr << outcome.detail << "\n";
+    std::cerr << "manifest written: " << plan.manifest.string() << " (it records the failure)\n";
+    return 1;
+  }
+  std::cout << "compressed " << plan.input.string() << " -> " << plan.output.string() << "\n"
+            << "manifest   " << plan.manifest.string() << "\n";
+  for (const StepOutcome& step : outcome.steps) {
+    std::cout << "  " << step.step << "  exit " << step.exit_code << "  " << step.seconds << "s\n";
+  }
+  return 0;
+}
+
+int do_decompress(const std::string& container, const std::string& out) {
+  const fs::path pkg = container;
+  if (!fs::exists(pkg)) {
+    std::cerr << kName << ": no such file: " << pkg << "\n";
+    return 1;
+  }
+  // Section 6 names the two files after the input, not after each other:
+  // input.txt -> input.txt.hzpkg + input.txt.hzpipeline. So the manifest is found
+  // by stripping the payload suffix, not by appending to it.
+  std::string base = pkg.string();
+  const std::string suffix = ".hzpkg";
+  if (base.size() > suffix.size() && base.compare(base.size() - suffix.size(), suffix.size(), suffix) == 0) {
+    base.resize(base.size() - suffix.size());
+  }
+  fs::path manifest = base + ".hzpipeline";
+  if (!fs::exists(manifest) && fs::exists(pkg.string() + ".hzpipeline")) {
+    manifest = pkg.string() + ".hzpipeline";  // tolerate the other spelling
+  }
+  if (!fs::exists(manifest)) {
+    std::cerr << kName << ": " << manifest.string()
+              << " is missing; without it there is no record of how this payload was made\n";
+    return 1;
+  }
+  const fs::path target = out.empty() ? fs::path(pkg.string() + ".out") : fs::path(out);
+  const RunOutcome outcome = run_reverse(manifest, target);
+  if (!outcome.ok) {
+    std::cerr << kName << ": reverse step `" << outcome.failed_step << "` failed with exit "
+              << outcome.exit_code << "\n";
+    if (!outcome.detail.empty()) std::cerr << outcome.detail << "\n";
+    return 1;
+  }
+  std::cout << "restored " << target.string() << "\n";
+  for (const StepOutcome& step : outcome.steps) {
+    std::cout << "  " << step.step << "  exit " << step.exit_code << "  " << step.seconds << "s\n";
   }
   return 0;
 }
@@ -275,7 +327,14 @@ int main(int argc, char** argv) {
       }
       return do_compress(config_dir, args[1], profile_name, out, dry_run);
     }
-    if (command == "decompress" || command == "bench") return not_yet(command);
+    if (command == "decompress") {
+      if (args.size() < 2) {
+        std::cerr << kName << ": decompress needs a .hzpkg\n";
+        return 2;
+      }
+      return do_decompress(args[1], out);
+    }
+    if (command == "bench") return not_yet(command);
   } catch (const IniError& error) {
     std::cerr << kName << ": " << error.what() << "\n";
     return 1;
