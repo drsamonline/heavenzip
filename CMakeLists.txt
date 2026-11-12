@@ -54,6 +54,12 @@ if(HEAVENZIP_BUILD_TESTS)
   add_test(NAME cli.version COMMAND heavenzip version)
 
   # The phase-3 exit test: compress with stub binaries, decompress, compare bytes.
+  # Phase 4: the same round trip against the real engine, skipped when bin/ is empty.
+  add_test(NAME integration.real-engine
+           COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/real-engine.sh"
+                   "$<TARGET_FILE:heavenzip>" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+                   "${CMAKE_CURRENT_SOURCE_DIR}")
+
   add_test(NAME integration.roundtrip
            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/roundtrip.sh"
                    "$<TARGET_FILE:heavenzip>" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")

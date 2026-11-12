@@ -24,6 +24,23 @@ jobs:
       - name: Build
         run: cmake --build build -j 2
 
+      - name: Fetch the engine, so the real round trip runs instead of skipping
+        # integration.real-engine skips when bin/ is empty. In CI it must not skip:
+        # a phase whose test never executes is a phase nobody has run.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          tag="$(gh release view -R drsamonline/ziptastic --json tagName --jq .tagName)"
+          echo "engine release: $tag"
+          gh release download "$tag" -R drsamonline/ziptastic \
+            --pattern 'ziptastic-*-linux-x86_64' --dir bin/ --clobber
+          gh release download "$tag" -R drsamonline/ziptastic \
+            --pattern 'SHA256SUMS' --dir bin/ --clobber
+          (cd bin && sha256sum -c SHA256SUMS --ignore-missing)
+          chmod +x bin/ziptastic-*-linux-x86_64
+          ./bin/ziptastic-*-linux-x86_64 version
+
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
