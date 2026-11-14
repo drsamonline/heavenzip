@@ -26,7 +26,6 @@
 
 const { execFileSync } = require("child_process");
 const fs = require("fs");
-const os = require("os");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
@@ -141,17 +140,34 @@ let measured = 0;
 
 for (const file of targets) {
   for (const theme of ["light", "dark"]) {
-    const tmp = path.join(os.tmpdir(), `contrast_${process.pid}_${theme}.html`);
+    // Beside the page, not in /tmp: Chromium treats file:// documents in different
+    // directories as different origins for iframe access, and a wrapper in /tmp
+    // silently renders nothing. Removed after the run.
+    const tmp = path.join(path.dirname(file), `.contrast-${process.pid}-${theme}.html`);
     fs.writeFileSync(tmp, wrapper(file, theme));
     let dom = "";
+    let err = "";
     try {
       dom = execFileSync(CHROME, ["--headless=new", "--disable-gpu", "--no-sandbox",
         "--allow-file-access-from-files", "--hide-scrollbars", "--window-size=1280,900",
         "--virtual-time-budget=8000", "--dump-dom", tmp],
-        { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "ignore"] });
-    } catch (e) { dom = String(e.stdout || ""); }
+        { encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+    } catch (e) { dom = String(e.stdout || ""); err = String(e.stderr || ""); }
     const m = dom.match(/data-out="([^"]*)"/);
-    if (!m) { findings.push({ file, theme, ratio: 0, selector: "(page did not render)", fg: "", bg: "" }); continue; }
+    if (!m) {
+      findings.push({ file, theme, ratio: 0, selector: "(page did not render)", fg: "", bg: "" });
+      // One diagnosis is worth a hundred guesses: say why, not just that.
+      if (!globalThis.__diagnosed) {
+        globalThis.__diagnosed = true;
+        console.error(`check-contrast: the page did not render. Diagnosing the first one.`);
+        console.error(`  wrapper: ${tmp}`);
+        console.error(`  dom bytes: ${dom.length}`);
+        console.error(`  dom head: ${JSON.stringify(dom.slice(0, 300))}`);
+        if (err.trim()) console.error(`  chromium stderr: ${err.trim().split("\n").slice(-6).join("\n    ")}`);
+      }
+      continue;
+    }
+    try { fs.unlinkSync(tmp); } catch {}
     const decoded = m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'");
     let rows = [];
     try { rows = JSON.parse(decoded); } catch { rows = []; }
