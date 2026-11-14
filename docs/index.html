@@ -144,6 +144,13 @@
   footer .wrap { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
   footer a { color: var(--mut); } footer a:hover { color: var(--accent); }
   .stamp { margin-left: auto; }
+
+/* ---- a11y: button contrast (measured, WCAG AA) ----------------------------
+   A button paired a surface token that flips with the theme with a text colour
+   that does not, so one mode rendered the label invisible. Each rule below
+   pins the pair. Ratios are from the rendered page, not from the source. */
+
+[data-theme="dark"] .btn.ghost{color:#e8f2ea!important}          /* 1.01 -> 16.2 on #10140f */
 </style>
 </head>
 <body>
