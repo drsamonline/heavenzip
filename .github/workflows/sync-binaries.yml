@@ -50,12 +50,28 @@ jobs:
           find "$GITHUB_WORKSPACE/bin" -maxdepth 1 -name 'ziptastic-*' -delete
           cp "$asset" "$GITHUB_WORKSPACE/bin/$asset"
           chmod +x "$GITHUB_WORKSPACE/bin/$asset"
-          {
-            echo "tag      $tag"
-            echo "asset    $asset"
-            echo "sha256   $(sha256sum "$asset" | cut -d' ' -f1)"
-            echo "fetched  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          } > "$GITHUB_WORKSPACE/bin/ENGINE"
+          # ENGINE records when the asset was fetched, which means rewriting it on
+          # every run — and a file that changes every run is a commit every run. It
+          # did: `bin: sync v1.4.2` on 12, 13 and 14 November, all identical. Write it
+          # only when the tag, the asset name or the digest actually changes, so the
+          # record keeps the date the bytes arrived rather than the date we last
+          # looked.
+          sha="$(sha256sum "$asset" | cut -d' ' -f1)"
+          engine="$GITHUB_WORKSPACE/bin/ENGINE"
+          current() { awk -v key="$1" '$1 == key {print $2}' "$engine" 2>/dev/null || true; }
+          if [ -f "$engine" ] \
+             && [ "$(current tag)" = "$tag" ] \
+             && [ "$(current asset)" = "$asset" ] \
+             && [ "$(current sha256)" = "$sha" ]; then
+            echo "bin/ already carries $tag at $sha; leaving ENGINE as it is"
+          else
+            {
+              echo "tag      $tag"
+              echo "asset    $asset"
+              echo "sha256   $sha"
+              echo "fetched  $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            } > "$engine"
+          fi
 
       - name: The binary runs
         run: ./bin/ziptastic-*-linux-x86_64 version
