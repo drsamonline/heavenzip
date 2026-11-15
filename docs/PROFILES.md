@@ -82,6 +82,24 @@ args = --in-place
 reverse_args = --reverse
 ```
 
+### Generating a profile instead of guessing one
+
+A profile is a guess someone wrote down. `heavenzip autotune <file>` replaces the
+guess with a measurement: it runs the combinations the tools in `bin/` make
+possible — engine alone at `-9` and `--max-ratio`, `srep` in front of either,
+`paq8px` alone, `srep` in front of `paq8px` — and ranks them by the size of the
+file each one actually produced.
+
+Every candidate is then reversed and compared against the input, smallest first. A
+candidate that cannot restore its own output is listed with the reason and is not
+eligible, which matters more than it sounds: `paq8px -8` on a 1.3 MB file runs out
+of memory, writes a 14-byte stub and **exits 0**, so a ranking on size alone puts
+it first.
+
+`--write <name>` saves the winner as `profiles/<name>.ini` and adds it to
+`[profiles] available`, with the measured ratio in a comment and a warning to
+re-measure on a different corpus. It never overwrites an existing profile.
+
 ### The engine's real options, and the profile that needs nothing else
 
 The shipped profiles used to pass `-c lzma -9` and `-c brotli -q 11` to ziptastic.

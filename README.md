@@ -46,7 +46,21 @@ heavenzip decompress notes.txt.hzpkg --out restored.txt
 
 # 4. measure every profile against a corpus
 heavenzip bench tests/fixtures/
+
+# 5. let it find the best combination for one file, and keep it as a profile
+heavenzip autotune big-corpus.tar
+heavenzip autotune big-corpus.tar --write best-for-tarballs
 ```
+
+`compress` verifies its own output by default: it reverses the archive it just
+wrote and compares the bytes, because an exit code of 0 is not proof. `paq8px -8`
+runs out of memory, writes a 14-byte stub and returns 0 — with verification off,
+that archive would have been handed over as a success. `--no-verify` skips the
+check when the time matters more.
+
+`autotune` runs the combinations the tools in `bin/` make possible, ranks them by
+measured size, and then proves each one by reversing it — smallest first — so a
+candidate that cannot restore its own output is reported rather than ranked.
 
 ## Build plan
 

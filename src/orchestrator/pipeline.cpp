@@ -344,6 +344,16 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     if (i + 1 == steps.size() && !out.empty()) {
       command.argv.back() = out.string();
     }
+    // Clear the file this step is about to produce. The forward run keeps its
+    // intermediates, and ziptastic refuses to overwrite ("exists (use -f)"), so
+    // reversing any pipeline longer than one step failed on its first step while
+    // the bytes were perfectly recoverable. Decompression owns its output; the
+    // forward direction does not, which is why only this side clears anything.
+    if (!command.argv.empty()) {
+      std::error_code ec;
+      fs::remove(command.argv.back(), ec);
+    }
+
     StepOutcome step;
     step.step = command.step;
     const fs::path out_log = manifest.parent_path() / (log_base.string() + "." + command.step + ".reverse.stdout");
