@@ -1,0 +1,58 @@
+# NOTICE
+
+heavenzip is MIT (see `LICENSE`). That covers the files this repository authors:
+`src/`, `include/`, `config/`, `tests/`, `tools/`, `docs/`, `CMakeLists.txt` and
+the workflows.
+
+## heavenzip links nothing
+
+This is the point of the repository. It chains prebuilt binaries through a process
+boundary and compiles no third-party code into itself — `CMakeLists.txt` links
+`heavenzip_core` and the C++ standard library, and nothing else. Every tool it
+spawns keeps its own licence, and spawning is not linking.
+
+That is why the fleet has two repos instead of one: `ziptastic` links, and
+therefore carries other people's terms in the artefact it ships; `heavenzip`
+spawns, and does not.
+
+## What is in this repository that heavenzip did not write
+
+`bin/` holds one compiled binary, committed by the `sync-binaries` workflow:
+
+| File | What it is | Licence |
+|---|---|---|
+| `bin/ziptastic-1.4.2-linux-x86_64` | the CHCE engine, built and released by `drsamonline/ziptastic` | MIT (same fleet) |
+| `bin/ENGINE` | a four-line record of the tag, asset, SHA-256 and fetch date | — |
+
+That binary contains third-party code — xz/liblzma, preflate, libbsc, libzpaq,
+7-Zip PPMd and precomp-cpp contrib — because `ziptastic` links them. Their
+licences travel with it: see `ziptastic`'s `NOTICE` and HCS's `LICENSES/`.
+
+A released build may also carry tools the user would otherwise install
+themselves. `docs/PACKAGING.md` records the decision, and `docs/TOOL_MANIFEST.md`
+carries the per-tool verdict:
+
+- **may ship**: `preflate` (Apache-2.0), `paq8px` (GPL-2+, as a separate program
+  with its source), `ECT` (Apache-2.0);
+- **may not ship**: `srep` — "All rights reserved" with no licence file, so not
+  redistributable in any form — and every commercial or unlicensed tool on the
+  shelf.
+
+A default release contains `ziptastic` and nothing else.
+
+## Two things a reader should know
+
+- **`bin/` is not a licence-free zone.** The `.gitignore` here lists
+  `bin/ziptastic`, `bin/srep`, `bin/paq8px` and `bin/preflate` — but the file
+  actually committed is `ziptastic-1.4.2-linux-x86_64`, which none of those
+  patterns match. The binary is in git, deliberately (that is what
+  `sync-binaries` commits), and `docs/TOOL_MANIFEST.md`'s "`bin/` stays empty in
+  the repository" describes an intention this repository does not follow. Both
+  statements should be reconciled; this file describes what is, not what was
+  intended.
+- **Offline at runtime.** Nothing in heavenzip reaches the network. The
+  `sync-binaries` workflow does, at build time, and is the only thing that does.
+
+*Not legal advice. Whether a particular bundled release satisfies each tool's
+terms is a question for a lawyer; the licence text is the authority, not this
+summary.*
