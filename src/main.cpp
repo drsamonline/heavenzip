@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -362,7 +363,16 @@ int do_autotune(const fs::path& config_dir, const fs::path& input,
   std::vector<Result> results;
   std::vector<Result> kept;   // measured, awaiting verification
 
-  const fs::path work = fs::temp_directory_path() / "heavenzip-autotune";
+  // Beside the input, not in /tmp. A 64 MB /tmp filled up and every chained
+  // candidate failed with "Can't write to output file (disk full?)" — which looks
+  // exactly like a broken pipeline and is not. The user's data is here, so the room
+  // to measure it is here too; TMPDIR is still honoured when it is set explicitly.
+  fs::path work = fs::temp_directory_path() / "heavenzip-autotune";
+  if (const char* forced = std::getenv("HEAVENZIP_WORK"); forced != nullptr && *forced != '\0') {
+    work = fs::path(forced);
+  } else if (input.has_parent_path()) {
+    work = input.parent_path() / ".heavenzip-autotune";
+  }
   fs::create_directories(work);
 
   for (const Candidate& candidate : autotune_candidates()) {
@@ -383,7 +393,16 @@ int do_autotune(const fs::path& config_dir, const fs::path& input,
       }
 
       const fs::path out = work / (candidate.name + ".hzpkg");
-      fs::remove(out);
+      // Clean slate per candidate: a stale payload or intermediate from an earlier
+      // run makes a compressor refuse to overwrite, and the failure then looks like
+      // a broken pipeline rather than leftover state.
+      for (const fs::directory_entry& entry : fs::directory_iterator(work)) {
+        const std::string stem = entry.path().filename().string();
+        if (stem.rfind(candidate.name + ".", 0) == 0) {
+          std::error_code rm_ec;
+          fs::remove(entry.path(), rm_ec);
+        }
+      }
       const Plan plan = build_plan(master, profile, candidate.name, input, out);
       const RunOutcome outcome = run_plan(plan);
       // run_plan spawns the steps; the manifest is the caller's job (do_compress
