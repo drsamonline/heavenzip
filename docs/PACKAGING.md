@@ -106,6 +106,17 @@ one rule this fleet keeps, so it waits for a CI job that builds and attaches it.
 Net effect: `plain` is the only profile that works out of the box, which is why it
 is the default and why the release bundle round-trips without it.
 
+### The glibc floor, learned the hard way again
+
+The first `build-tools` run built paq8px on `ubuntu-latest` and produced a binary
+that demands **`GLIBC_2.38` and `GLIBC_2.43`** — it would not start on Debian 12
+(2.36), which is the same defect ziptastic 1.4.2 shipped with before its floor was
+fixed. The build now runs inside an `ubuntu:20.04` container, so the floor is the
+container's glibc rather than the runner's, and a step reads the binary's own
+symbol versions with `objdump -T` and fails if any is newer than the build image.
+A binary that builds but cannot start is worse than no binary: it passes every
+check that does not try to run it.
+
 ## Two follow-ups this decision creates
 
 1. **`TOOL_MANIFEST.md`'s `redistribute?` column** should become two columns,
