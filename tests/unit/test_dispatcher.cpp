@@ -104,9 +104,23 @@ void test_reverse_uses_reverse_args_when_given() {
 }
 
 void test_reverse_defaults_to_the_d_verb() {
+  // The default applies to a step that does not set `reverse_args`. The `text`
+  // profile's srep step sets `-d` now (srep has no `d` verb), so this checks the
+  // ziptastic step — the one that still relies on the convention.
   const Plan plan = build_plan(master(), profile("text"), "text", g_fixtures / "notes.txt",
                                g_fixtures / "w.hzpkg");
-  CHECK(plan.steps[0].reverse[1] == "d");
+  const auto& last = plan.steps.back();
+  CHECK(last.step == "ziptastic");
+  CHECK(last.reverse[1] == "d");
+}
+
+void test_reverse_args_override_the_default_verb() {
+  // srep and paq8px both undo with `-d`, not `d`. A profile that says so must have
+  // it honoured, or the archive cannot be reversed at all.
+  const Plan plan = build_plan(master(), profile("text"), "text", g_fixtures / "notes.txt",
+                               g_fixtures / "w.hzpkg");
+  CHECK(plan.steps.front().step == "srep");
+  CHECK(plan.steps.front().reverse[1] == "-d");
 }
 
 void test_program_availability_is_checked() {

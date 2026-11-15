@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include <cstring>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -34,6 +36,8 @@ void usage(std::ostream& out) {
       << "  detect <file>           classify a file the way a profile's `detect` would\n"
       << "  validate                parse the master config and every profile\n"
       << "  bench <dir>             run every profile over a corpus, print ratio and time\n"
+      << "  autotune <file>         try every pipeline the tools allow, rank by size,\n"
+      << "                          and optionally write the winner as a profile\n"
       << "  version                 print the version\n"
       << "\n"
       << "Options:\n"
@@ -42,6 +46,8 @@ void usage(std::ostream& out) {
       << "  --profile <name>        profile to use (default: `default` from [profiles])\n"
       << "  --out <file>            output path (default: <input>.hzpkg)\n"
       << "  --dry-run               print the argv each step would run, spawn nothing\n"
+      << "  --write <name>          autotune: save the winning pipeline as profiles/<name>.ini\n"
+      << "  --no-verify             compress: skip the reverse-and-compare check (it is on by default)\n"
       << "  --help, -h              this text\n"
       << "  --version, -V           print the version\n";
 }
@@ -142,8 +148,27 @@ int do_list_profiles(const fs::path& config_dir) {
   return 0;
 }
 
+// Byte-for-byte comparison, streamed: these files can be large and the point is to
+// be sure, not to be quick.
+bool same_bytes(const fs::path& a, const fs::path& b) {
+  std::error_code ec;
+  if (fs::file_size(a, ec) != fs::file_size(b, ec) || ec) return false;
+  std::ifstream left(a, std::ios::binary);
+  std::ifstream right(b, std::ios::binary);
+  char lb[65536];
+  char rb[65536];
+  while (left && right) {
+    left.read(lb, sizeof(lb));
+    right.read(rb, sizeof(rb));
+    const auto n = left.gcount();
+    if (n != right.gcount()) return false;
+    if (std::memcmp(lb, rb, static_cast<std::size_t>(n)) != 0) return false;
+  }
+  return true;
+}
+
 int do_compress(const fs::path& config_dir, const std::string& input, const std::string& profile_name,
-                const std::string& out, bool dry_run) {
+                const std::string& out, bool dry_run, bool verify) {
   const MasterConfig master = MasterConfig::load(config_dir / "syc.ini");
   const std::string name = profile_name.empty() ? master.default_profile : profile_name;
 
@@ -203,6 +228,29 @@ int do_compress(const fs::path& config_dir, const std::string& input, const std:
   for (const StepOutcome& step : outcome.steps) {
     std::cout << "  " << step.step << "  exit " << step.exit_code << "  " << step.seconds << "s\n";
   }
+
+  if (verify) {
+    // An exit code of 0 is not proof. paq8px at -8 runs out of memory, prints
+    // "Out of memory.", writes a 14-byte stub and returns 0 — so without this the
+    // archive would be written, the manifest would say ok, and the user would find
+    // out when they tried to restore it. Reverse the plan and compare the bytes
+    // before the archive is called good.
+    const fs::path restored = plan.output.string() + ".verify";
+    std::error_code ec;
+    fs::remove(restored, ec);
+    const RunOutcome back = run_reverse(plan.manifest, restored);
+    const bool identical = back.ok && same_bytes(plan.input, restored);
+    fs::remove(restored, ec);
+    if (!identical) {
+      std::cerr << kName << ": the archive does not restore the input"
+                << (back.ok ? " (bytes differ)" : (" (reverse failed at " + back.failed_step + ")"))
+                << "\n"
+                << "The payload was written but it is not a copy of the input. Keep the "
+                   "manifest and the input; do not delete either.\n";
+      return 1;
+    }
+    std::cout << "verified   the archive restores the input byte for byte\n";
+  }
   return 0;
 }
 
@@ -241,6 +289,239 @@ int do_decompress(const std::string& container, const std::string& out) {
   for (const StepOutcome& step : outcome.steps) {
     std::cout << "  " << step.step << "  exit " << step.exit_code << "  " << step.seconds << "s\n";
   }
+  return 0;
+}
+
+// autotune — which combination of the tools actually present compresses this file
+// smallest?
+//
+// The profiles are guesses someone wrote down. This tries the combinations that
+// the tools on this machine make possible, measures the real output, and prints
+// them smallest first. With --write it turns the winner into a profile file, so a
+// ratio someone discovered once is not lost.
+//
+// It is a search over a handful of candidates, not a solver: it runs each one to
+// completion and believes the file size. Anything that cannot run is reported as
+// skipped with the missing program named, never silently dropped.
+struct Candidate {
+  std::string name;
+  std::string text;
+};
+
+std::vector<Candidate> autotune_candidates() {
+  // Ordered by how likely they are to be worth the time, which only affects the
+  // order they are tried in — the report sorts by measured size.
+  return {
+      {"z9", "[route]\ndetect = any\npipeline = ziptastic\n\n[ziptastic]\nargs = -9\n"},
+      {"zmax", "[route]\ndetect = any\npipeline = ziptastic\n\n[ziptastic]\nargs = --max-ratio\n"},
+      {"srep-z9",
+       "[route]\ndetect = any\npipeline = srep,ziptastic\n\n[srep]\nbin = bin/srep.exe\nargs = -m3f\nreverse_args = -d\n\n"
+       "[ziptastic]\nargs = -9\n"},
+      {"srep-zmax",
+       "[route]\ndetect = any\npipeline = srep,ziptastic\n\n[srep]\nbin = bin/srep.exe\nargs = -m5f\nreverse_args = -d\n\n"
+       "[ziptastic]\nargs = --max-ratio\n"},
+      {"paq8", "[route]\ndetect = any\npipeline = paq8px\n\n[paq8px]\nbin = bin/paq8px.exe\nargs = -5\nreverse_args = -d\n"},
+      {"srep-paq8",
+       "[route]\ndetect = any\npipeline = srep,paq8px\n\n[srep]\nbin = bin/srep.exe\nargs = -m5f\nreverse_args = -d\n\n"
+       "[paq8px]\nbin = bin/paq8px.exe\nargs = -8\nreverse_args = -d\n"},
+  };
+}
+
+int do_autotune(const fs::path& config_dir, const fs::path& input, const std::string& write_as) {
+  const MasterConfig master = MasterConfig::load(config_dir / "syc.ini");
+  if (!fs::is_regular_file(input)) {
+    std::cerr << kName << ": no such file: " << input << "\n";
+    return 1;
+  }
+  const auto in_size = fs::file_size(input);
+  const Detection found = detect_file(input);
+
+  struct Result {
+    std::string name;
+    std::string text;
+    bool ok = false;
+    bool verified = false;
+    std::string note;
+    std::uintmax_t out_size = 0;
+    double seconds = 0.0;
+    std::string pending_manifest;
+    std::string pending_output;
+  };
+  std::vector<Result> results;
+  std::vector<Result> kept;   // measured, awaiting verification
+
+  const fs::path work = fs::temp_directory_path() / "heavenzip-autotune";
+  fs::create_directories(work);
+
+  for (const Candidate& candidate : autotune_candidates()) {
+    Result result;
+    result.name = candidate.name;
+    result.text = candidate.text;
+    try {
+      const Profile profile = Profile::parse(candidate.text, candidate.name);
+      std::string missing;
+      for (const Step& step : profile.steps) {
+        const std::string bin = step.bin.empty() ? master.ziptastic_bin : step.bin;
+        if (!program_available(bin) && missing.empty()) missing = bin;
+      }
+      if (!missing.empty()) {
+        result.note = "skipped: " + missing + " not present";
+        results.push_back(result);
+        continue;
+      }
+
+      const fs::path out = work / (candidate.name + ".hzpkg");
+      fs::remove(out);
+      const Plan plan = build_plan(master, profile, candidate.name, input, out);
+      const RunOutcome outcome = run_plan(plan);
+      // run_plan spawns the steps; the manifest is the caller's job (do_compress
+      // does the same). Without it there is nothing to reverse, and the first
+      // version of this command reported every candidate as "cannot be opened".
+      write_manifest(plan, outcome);
+      if (!outcome.ok) {
+        result.note = "failed at " + outcome.failed_step;
+        results.push_back(result);
+        continue;
+      }
+      for (const StepOutcome& step : outcome.steps) result.seconds += step.seconds;
+
+      // A size is not a result, so verification comes next — but after the
+      // ranking, not inside the measurement loop. Verifying every candidate
+      // doubles a slow run (zmax takes ~27 s on a 1.3 MB file); ranking first and
+      // then proving the smallest one is both faster and stricter, because the
+      // first candidate that cannot restore its own output is skipped in favour of
+      // the next.
+      // Every candidate plans from the same input, so every manifest lands on the
+      // same path (`<input>.hzpipeline`) and the last one written would be the only
+      // survivor. Move each aside so the verification pass can still find it.
+      const fs::path own_manifest = work / (candidate.name + ".hzpipeline");
+      std::error_code move_ec;
+      fs::rename(plan.manifest, own_manifest, move_ec);
+      result.out_size = fs::file_size(out);
+      result.ok = true;
+      result.pending_manifest = (move_ec ? plan.manifest : own_manifest).string();
+      result.pending_output = out.string();
+      kept.push_back(std::move(result));
+      continue;
+    } catch (const std::exception& error) {
+      result.note = std::string("error: ") + error.what();
+    }
+    results.push_back(result);
+  }
+
+  for (Result& result : kept) results.push_back(std::move(result));
+
+  // Verify smallest-first, and stop at the first candidate that restores its own
+  // input. Anything smaller than the winner that cannot be reversed is reported
+  // with the reason, which is the whole point: paq8px at -8 produces a 14-byte
+  // "archive" for a 1.3 MB file and exits 0.
+  std::vector<Result*> by_size;
+  for (Result& result : results) {
+    if (result.ok) by_size.push_back(&result);
+  }
+  std::sort(by_size.begin(), by_size.end(),
+            [](const Result* a, const Result* b) { return a->out_size < b->out_size; });
+  for (Result* result : by_size) {
+    const fs::path restored = work / (result->name + ".restored");
+    std::error_code ec;
+    fs::remove(restored, ec);
+    RunOutcome back;
+    try {
+      back = run_reverse(result->pending_manifest, restored);
+    } catch (const std::exception& error) {
+      result->ok = false;
+      result->note = std::string("cannot verify: ") + error.what();
+      continue;
+    }
+    if (!back.ok) {
+      result->ok = false;
+      result->note = "cannot be reversed at " + back.failed_step;
+    } else if (!same_bytes(input, restored)) {
+      result->ok = false;
+      result->note = "round trip does not restore the input";
+    } else {
+      result->verified = true;
+    }
+    fs::remove(restored, ec);
+    fs::remove(result->pending_output, ec);
+    fs::remove(result->pending_manifest, ec);
+  }
+
+  std::sort(results.begin(), results.end(), [](const Result& a, const Result& b) {
+    if (a.ok != b.ok) return a.ok;          // the ones that ran come first
+    if (!a.ok) return a.name < b.name;
+    return a.out_size < b.out_size;         // then smallest output wins
+  });
+
+  std::printf("autotune %s  (%ju bytes, %s)\n\n", input.filename().string().c_str(),
+              static_cast<std::uintmax_t>(in_size), to_string(found.value).c_str());
+  std::printf("%-12s %-12s %-9s %-8s %s\n", "pipeline", "out", "ratio", "time", "status");
+  std::printf("%-12s %-12s %-9s %-8s %s\n", "------------", "------------", "---------",
+              "--------", "------");
+
+  const Result* best = nullptr;
+  for (const Result& result : results) {
+    if (result.ok && best == nullptr) best = &result;
+    if (!result.ok) {
+      std::printf("%-12s %-12s %-9s %-8s %s\n", result.name.c_str(), "-", "-", "-",
+                  result.note.c_str());
+      continue;
+    }
+    const double ratio = static_cast<double>(result.out_size) / static_cast<double>(in_size);
+    char time_text[32];
+    std::snprintf(time_text, sizeof(time_text), "%.2fs", result.seconds);
+    std::printf("%-12s %-12ju %-9.4f %-8s %s\n", result.name.c_str(),
+                static_cast<std::uintmax_t>(result.out_size), ratio, time_text,
+                result.verified ? ((&result == best) ? "best, verified" : "verified") : "");
+  }
+
+  if (best == nullptr) {
+    std::printf("\nnothing could run: every candidate needs a program that is not in bin/\n");
+    return 1;
+  }
+  std::printf("\nbest: %s  %.4f  (%ju -> %ju bytes)\n", best->name.c_str(),
+              static_cast<double>(best->out_size) / static_cast<double>(in_size),
+              static_cast<std::uintmax_t>(in_size),
+              static_cast<std::uintmax_t>(best->out_size));
+
+  if (write_as.empty()) {
+    std::printf("write it as a profile with: heavenzip autotune %s --write <name>\n",
+                input.filename().string().c_str());
+    return 0;
+  }
+
+  // Writing it means the discovery survives: a profile file plus the one line in
+  // syc.ini that makes `--profile <name>` resolve. Both are printed as they change.
+  const fs::path profile_path = config_dir / "profiles" / (write_as + ".ini");
+  if (fs::exists(profile_path)) {
+    std::cerr << kName << ": " << profile_path << " already exists; not overwriting it\n";
+    return 1;
+  }
+  std::string text = best->text;
+  text = "# Generated by `heavenzip autotune` from " + input.filename().string() + ".\n" +
+         "# Measured " + std::to_string(best->out_size) + " bytes from " +
+         std::to_string(static_cast<std::uintmax_t>(in_size)) + " (" +
+         std::to_string(static_cast<double>(best->out_size) / static_cast<double>(in_size)) +
+         " ratio). Re-measure before trusting it on a different corpus.\n" + text;
+  { std::ofstream out(profile_path); out << text; }
+  std::cout << "wrote " << profile_path << "\n";
+
+  const fs::path master_path = config_dir / "syc.ini";
+  std::string master_text;
+  { std::ifstream in(master_path); master_text.assign(std::istreambuf_iterator<char>(in),
+                                                     std::istreambuf_iterator<char>()); }
+  const std::string key = "available =";
+  const auto at = master_text.find(key);
+  if (at != std::string::npos) {
+    const auto eol = master_text.find('\n', at);
+    const std::string line = master_text.substr(at, eol - at);
+    if (line.find(write_as) == std::string::npos) {
+      master_text.insert(eol, ", " + write_as);
+      { std::ofstream out(master_path); out << master_text; }
+      std::cout << "added `" << write_as << "` to [profiles] available in " << master_path << "\n";
+    }
+  }
+  std::cout << "check it with: heavenzip validate\n";
   return 0;
 }
 
@@ -325,8 +606,10 @@ int main(int argc, char** argv) {
   fs::path config_dir;
   bool require_bins = false;
   bool dry_run = false;
+  bool verify = true;
   std::string profile_name;
   std::string out;
+  std::string write_as;   // autotune --write <name>
 
   // --config may appear anywhere; take it out before reading the command.
   for (auto it = args.begin(); it != args.end();) {
@@ -347,6 +630,20 @@ int main(int argc, char** argv) {
     if (*it == "--dry-run") {
       dry_run = true;
       it = args.erase(it);
+      continue;
+    }
+    if (*it == "--no-verify") {
+      verify = false;
+      it = args.erase(it);
+      continue;
+    }
+    if (*it == "--write") {
+      if (it + 1 == args.end()) {
+        std::cerr << kName << ": --write needs a profile name\n";
+        return 2;
+      }
+      write_as = *(it + 1);
+      it = args.erase(it, it + 2);
       continue;
     }
     if (*it == "--profile" || *it == "--out") {
@@ -393,12 +690,19 @@ int main(int argc, char** argv) {
       return do_detect(args[1]);
     }
     if (command == "list-profiles") return do_list_profiles(config_dir);
+    if (command == "autotune") {
+      if (args.size() < 2) {
+        std::cerr << kName << ": autotune needs an input file\n";
+        return 2;
+      }
+      return do_autotune(config_dir, args[1], write_as);
+    }
     if (command == "compress") {
       if (args.size() < 2) {
         std::cerr << kName << ": compress needs an input file\n";
         return 2;
       }
-      return do_compress(config_dir, args[1], profile_name, out, dry_run);
+      return do_compress(config_dir, args[1], profile_name, out, dry_run, verify);
     }
     if (command == "decompress") {
       if (args.size() < 2) {
