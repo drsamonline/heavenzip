@@ -42,11 +42,14 @@ void test_text_profile_plans_two_steps() {
   CHECK(plan.manifest == g_fixtures / "notes.txt.hzpipeline");
 
   // Step 0: its own bin and args, the input, and the intermediate it writes.
+  // The args carry a dictionary cap now: srep's default wants ~1.7 GB and dies on
+  // an ordinary machine, so `-l256m` is part of the profile, not a local tweak.
   CHECK(plan.steps[0].program == "bin/srep.exe");
-  CHECK(plan.steps[0].argv.size() == 4);
-  CHECK(plan.steps[0].argv[1] == "-m3f");
-  CHECK(plan.steps[0].argv[2] == (g_fixtures / "notes.txt").string());
-  CHECK(plan.steps[0].argv[3].find(".tmp") != std::string::npos);
+  CHECK(plan.steps[0].argv.size() == 5);
+  CHECK(plan.steps[0].argv[1] == "-l256m");
+  CHECK(plan.steps[0].argv[2] == "-m3f");
+  CHECK(plan.steps[0].argv[3] == (g_fixtures / "notes.txt").string());
+  CHECK(plan.steps[0].argv[4].find(".tmp") != std::string::npos);
 
   // Step 1 reads what step 0 wrote and writes the output. The argv tail is
   // [input, output] whatever the step's own arguments were.
