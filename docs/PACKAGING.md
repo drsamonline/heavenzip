@@ -106,6 +106,17 @@ one rule this fleet keeps, so it waits for a CI job that builds and attaches it.
 Net effect: `plain` is the only profile that works out of the box, which is why it
 is the default and why the release bundle round-trips without it.
 
+### The CPU baseline, which CI cannot check
+
+The first published bundle crashed with `Illegal instruction` on `heavenzip validate`.
+zig builds for the machine doing the building unless it is told otherwise, so the
+binary used instructions the target CPU lacks — and the CI round trip passed, because
+it ran on the same class of machine that produced it.
+
+Both zig invocations now pass `-target x86_64-linux-gnu.2.28`, which pins the glibc
+floor *and* a baseline CPU. `paq8px` is built with gcc's `-march=nocona`, already a
+2004-era baseline, and `srep` is cross-compiled the same way as heavenzip.
+
 ### The bundle's glibc floor is 2.35
 
 The bundle is assembled in an `ubuntu:22.04` container, and that is what sets the
