@@ -47,6 +47,8 @@ void usage(std::ostream& out) {
       << "  --out <file>            output path (default: <input>.hzpkg)\n"
       << "  --dry-run               print the argv each step would run, spawn nothing\n"
       << "  --write <name>          autotune: save the winning pipeline as profiles/<name>.ini\n"
+      << "  --goal ratio|speed|balanced  autotune: which winner --write saves (default ratio)\n"
+      << "  --templates <dir>       autotune: write best-ratio/-speed/-balanced.ini into <dir>\n"
       << "  --no-verify             compress: skip the reverse-and-compare check (it is on by default)\n"
       << "  --help, -h              this text\n"
       << "  --version, -V           print the version\n";
@@ -327,7 +329,9 @@ std::vector<Candidate> autotune_candidates() {
   };
 }
 
-int do_autotune(const fs::path& config_dir, const fs::path& input, const std::string& write_as) {
+int do_autotune(const fs::path& config_dir, const fs::path& input,
+                const std::string& write_as, const std::string& goal,
+                const fs::path& templates_dir) {
   const MasterConfig master = MasterConfig::load(config_dir / "syc.ini");
   if (!fs::is_regular_file(input)) {
     std::cerr << kName << ": no such file: " << input << "\n";
@@ -459,9 +463,32 @@ int do_autotune(const fs::path& config_dir, const fs::path& input, const std::st
   std::printf("%-12s %-12s %-9s %-8s %s\n", "------------", "------------", "---------",
               "--------", "------");
 
-  const Result* best = nullptr;
+  // Three goals, because "best" is two questions. The smallest file and the
+  // fastest run are rarely the same pipeline, and a user choosing a profile needs
+  // to know which trade they are making rather than being handed one number.
+  const Result* best_ratio = nullptr;
+  const Result* best_speed = nullptr;
+  double fastest = 0.0;
   for (const Result& result : results) {
-    if (result.ok && best == nullptr) best = &result;
+    if (!result.ok || !result.verified) continue;
+    if (best_ratio == nullptr || result.out_size < best_ratio->out_size) best_ratio = &result;
+    if (best_speed == nullptr || result.seconds < best_speed->seconds) {
+      best_speed = &result;
+      fastest = result.seconds;
+    }
+  }
+  // Balanced: the smallest output among the candidates that finish within twice the
+  // fastest time. A 30-second pipeline that saves 0.4 % is not a better default.
+  const Result* best_balanced = nullptr;
+  for (const Result& result : results) {
+    if (!result.ok || !result.verified) continue;
+    if (result.seconds > fastest * 2.0 + 0.05) continue;
+    if (best_balanced == nullptr || result.out_size < best_balanced->out_size) {
+      best_balanced = &result;
+    }
+  }
+
+  for (const Result& result : results) {
     if (!result.ok) {
       std::printf("%-12s %-12s %-9s %-8s %s\n", result.name.c_str(), "-", "-", "-",
                   result.note.c_str());
@@ -472,20 +499,68 @@ int do_autotune(const fs::path& config_dir, const fs::path& input, const std::st
     std::snprintf(time_text, sizeof(time_text), "%.2fs", result.seconds);
     std::printf("%-12s %-12ju %-9.4f %-8s %s\n", result.name.c_str(),
                 static_cast<std::uintmax_t>(result.out_size), ratio, time_text,
-                result.verified ? ((&result == best) ? "best, verified" : "verified") : "");
+                [&]() -> std::string {
+                  if (!result.verified) return "";
+                  std::string tags;
+                  if (&result == best_ratio) tags += "smallest ";
+                  if (&result == best_speed) tags += "fastest ";
+                  if (&result == best_balanced) tags += "balanced ";
+                  return tags.empty() ? "verified" : (tags + "verified");
+                }().c_str());
   }
 
-  if (best == nullptr) {
-    std::printf("\nnothing could run: every candidate needs a program that is not in bin/\n");
+  if (best_ratio == nullptr) {
+    std::printf("\nnothing verified: every candidate either needs a program that is not "
+                "in bin/, or cannot restore its own output\n");
     return 1;
   }
-  std::printf("\nbest: %s  %.4f  (%ju -> %ju bytes)\n", best->name.c_str(),
-              static_cast<double>(best->out_size) / static_cast<double>(in_size),
-              static_cast<std::uintmax_t>(in_size),
-              static_cast<std::uintmax_t>(best->out_size));
+  const auto show = [&](const char* label, const Result* result) {
+    if (result == nullptr) {
+      std::printf("%-9s none\n", label);
+      return;
+    }
+    std::printf("%-9s %-10s ratio %.4f   %ju bytes   %.2fs\n", label, result->name.c_str(),
+                static_cast<double>(result->out_size) / static_cast<double>(in_size),
+                static_cast<std::uintmax_t>(result->out_size), result->seconds);
+  };
+  std::printf("\n");
+  show("smallest", best_ratio);
+  show("fastest", best_speed);
+  show("balanced", best_balanced);
+
+  // --templates writes all three, so a user can compare them side by side instead
+  // of taking one number on trust.
+  if (!templates_dir.empty()) {
+    std::error_code ec;
+    fs::create_directories(templates_dir, ec);
+    const std::pair<const char*, const Result*> picks[] = {
+        {"ratio", best_ratio}, {"speed", best_speed}, {"balanced", best_balanced}};
+    for (const auto& [label, result] : picks) {
+      if (result == nullptr) continue;
+      const fs::path path = templates_dir / (std::string("best-") + label + ".ini");
+      std::ofstream out(path);
+      out << "# Generated by `heavenzip autotune` from " << input.filename().string() << "\n"
+          << "# goal: " << label << "  —  " << result->name << "\n"
+          << "# measured " << result->out_size << " bytes from "
+          << static_cast<std::uintmax_t>(in_size) << " (ratio "
+          << static_cast<double>(result->out_size) / static_cast<double>(in_size)
+          << "), " << result->seconds << "s, round trip verified\n"
+          << "# Re-measure on a different corpus before trusting it there.\n" << result->text;
+      std::cout << "wrote " << path.string() << "\n";
+    }
+    std::cout << "to use one, copy it into config/profiles/ and add its name to "
+                 "[profiles] available\n";
+    return 0;
+  }
+
+  const Result* chosen = best_ratio;
+  if (goal == "speed") chosen = best_speed;
+  if (goal == "balanced") chosen = best_balanced;
+  if (chosen == nullptr) chosen = best_ratio;
 
   if (write_as.empty()) {
-    std::printf("write it as a profile with: heavenzip autotune %s --write <name>\n",
+    std::printf("\nwrite it as a profile with: heavenzip autotune %s --write <name> "
+                "[--goal ratio|speed|balanced]\n",
                 input.filename().string().c_str());
     return 0;
   }
@@ -497,12 +572,14 @@ int do_autotune(const fs::path& config_dir, const fs::path& input, const std::st
     std::cerr << kName << ": " << profile_path << " already exists; not overwriting it\n";
     return 1;
   }
-  std::string text = best->text;
-  text = "# Generated by `heavenzip autotune` from " + input.filename().string() + ".\n" +
-         "# Measured " + std::to_string(best->out_size) + " bytes from " +
-         std::to_string(static_cast<std::uintmax_t>(in_size)) + " (" +
-         std::to_string(static_cast<double>(best->out_size) / static_cast<double>(in_size)) +
-         " ratio). Re-measure before trusting it on a different corpus.\n" + text;
+  std::string text = chosen->text;
+  text = "# Generated by `heavenzip autotune` from " + input.filename().string() +
+         " (goal: " + goal + ").\n" +
+         "# Measured " + std::to_string(chosen->out_size) + " bytes from " +
+         std::to_string(static_cast<std::uintmax_t>(in_size)) + " (ratio " +
+         std::to_string(static_cast<double>(chosen->out_size) / static_cast<double>(in_size)) +
+         ", " + std::to_string(chosen->seconds) +
+         "s, round trip verified). Re-measure before trusting it on a different corpus.\n" + text;
   { std::ofstream out(profile_path); out << text; }
   std::cout << "wrote " << profile_path << "\n";
 
@@ -610,6 +687,8 @@ int main(int argc, char** argv) {
   std::string profile_name;
   std::string out;
   std::string write_as;   // autotune --write <name>
+  std::string goal = "ratio";   // autotune --goal ratio|speed|balanced
+  fs::path templates_dir;       // autotune --templates <dir>
 
   // --config may appear anywhere; take it out before reading the command.
   for (auto it = args.begin(); it != args.end();) {
@@ -635,6 +714,28 @@ int main(int argc, char** argv) {
     if (*it == "--no-verify") {
       verify = false;
       it = args.erase(it);
+      continue;
+    }
+    if (*it == "--goal") {
+      if (it + 1 == args.end()) {
+        std::cerr << kName << ": --goal needs ratio, speed or balanced\n";
+        return 2;
+      }
+      goal = *(it + 1);
+      if (goal != "ratio" && goal != "speed" && goal != "balanced") {
+        std::cerr << kName << ": --goal must be ratio, speed or balanced, not `" << goal << "`\n";
+        return 2;
+      }
+      it = args.erase(it, it + 2);
+      continue;
+    }
+    if (*it == "--templates") {
+      if (it + 1 == args.end()) {
+        std::cerr << kName << ": --templates needs a directory\n";
+        return 2;
+      }
+      templates_dir = *(it + 1);
+      it = args.erase(it, it + 2);
       continue;
     }
     if (*it == "--write") {
@@ -695,7 +796,7 @@ int main(int argc, char** argv) {
         std::cerr << kName << ": autotune needs an input file\n";
         return 2;
       }
-      return do_autotune(config_dir, args[1], write_as);
+      return do_autotune(config_dir, args[1], write_as, goal, templates_dir);
     }
     if (command == "compress") {
       if (args.size() < 2) {
