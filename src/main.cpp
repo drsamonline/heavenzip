@@ -317,14 +317,22 @@ std::vector<Candidate> autotune_candidates() {
       {"z9", "[route]\ndetect = any\npipeline = ziptastic\n\n[ziptastic]\nargs = -9\n"},
       {"zmax", "[route]\ndetect = any\npipeline = ziptastic\n\n[ziptastic]\nargs = --max-ratio\n"},
       {"srep-z9",
-       "[route]\ndetect = any\npipeline = srep,ziptastic\n\n[srep]\nbin = bin/srep.exe\nargs = -m3f\nreverse_args = -d\n\n"
+       "[route]\ndetect = any\npipeline = srep,ziptastic\n\n[srep]\nbin = bin/srep.exe\nargs = -l256m -m3f\nreverse_args = -d\n\n"
        "[ziptastic]\nargs = -9\n"},
       {"srep-zmax",
-       "[route]\ndetect = any\npipeline = srep,ziptastic\n\n[srep]\nbin = bin/srep.exe\nargs = -m5f\nreverse_args = -d\n\n"
+       "[route]\ndetect = any\npipeline = srep,ziptastic\n\n[srep]\nbin = bin/srep.exe\nargs = -l256m -m5f\nreverse_args = -d\n\n"
        "[ziptastic]\nargs = --max-ratio\n"},
       {"paq8", "[route]\ndetect = any\npipeline = paq8px\n\n[paq8px]\nbin = bin/paq8px.exe\nargs = -5\nreverse_args = -d\n"},
+      // A tool whose CLI is not `input output`. This is only expressible because
+      // steps take `{in}`/`{out}` placeholders; before that it needed a wrapper.
+      {"brotli", "[route]\ndetect = any\npipeline = brotli\n\n[brotli]\nbin = bin/brotli.exe\n"
+                 "args = -q 11 -o {out} {in}\nreverse_args = -d -o {out} {in}\n"},
+      {"srep-brotli",
+       "[route]\ndetect = any\npipeline = srep,brotli\n\n[srep]\nbin = bin/srep.exe\nargs = -m5f\n"
+       "reverse_args = -d\n\n[brotli]\nbin = bin/brotli.exe\nargs = -q 11 -o {out} {in}\n"
+       "reverse_args = -d -o {out} {in}\n"},
       {"srep-paq8",
-       "[route]\ndetect = any\npipeline = srep,paq8px\n\n[srep]\nbin = bin/srep.exe\nargs = -m5f\nreverse_args = -d\n\n"
+       "[route]\ndetect = any\npipeline = srep,paq8px\n\n[srep]\nbin = bin/srep.exe\nargs = -l256m -m5f\nreverse_args = -d\n\n"
        "[paq8px]\nbin = bin/paq8px.exe\nargs = -8\nreverse_args = -d\n"},
   };
 }
@@ -383,7 +391,14 @@ int do_autotune(const fs::path& config_dir, const fs::path& input,
       // version of this command reported every candidate as "cannot be opened".
       write_manifest(plan, outcome);
       if (!outcome.ok) {
-        result.note = "failed at " + outcome.failed_step;
+        // Name the step *and* why. "failed at srep" sent me looking at the wrong
+        // thing twice; the step's own stderr is the answer.
+        std::string why = outcome.detail;
+        for (char& c : why) {
+          if (c == '\n') c = ' ';
+        }
+        if (why.size() > 70) why = why.substr(0, 70) + "…";
+        result.note = "failed at " + outcome.failed_step + (why.empty() ? "" : ": " + why);
         results.push_back(result);
         continue;
       }
@@ -439,7 +454,12 @@ int do_autotune(const fs::path& config_dir, const fs::path& input,
     }
     if (!back.ok) {
       result->ok = false;
-      result->note = "cannot be reversed at " + back.failed_step;
+      std::string why = back.detail;
+      for (char& c : why) {
+        if (c == '\n') c = ' ';
+      }
+      if (why.size() > 70) why = why.substr(0, 70) + "…";
+      result->note = "cannot be reversed at " + back.failed_step + (why.empty() ? "" : ": " + why);
     } else if (!same_bytes(input, restored)) {
       result->ok = false;
       result->note = "round trip does not restore the input";
