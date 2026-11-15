@@ -39,7 +39,12 @@ jobs:
     # `GLIBC_2.38` and `GLIBC_2.43` — unusable on Debian 12 (2.36), which is the
     # exact defect ziptastic 1.4.2 shipped with before its floor was fixed. The
     # container decides the floor, so it is stated rather than inherited.
-    container: ubuntu:20.04
+    # 22.04, not 20.04: the engine this bundle packages requires GLIBC_2.34 and
+    # cannot even be executed in a 2.31 image, so the assembly step failed on its
+    # own round trip. The build image has to be able to run what it ships. 22.04
+    # gives glibc 2.35, cmake 3.22 and gcc 11; the bundle's floor is therefore
+    # 2.35, set by paq8px, while the engine alone needs 2.34.
+    container: ubuntu:22.04
     # The image's default shell is `sh`, which has no `pipefail` — the first
     # container run died on `set: Illegal option -o pipefail` before checking
     # anything. Bash for every step in this job.

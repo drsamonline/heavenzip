@@ -106,6 +106,15 @@ one rule this fleet keeps, so it waits for a CI job that builds and attaches it.
 Net effect: `plain` is the only profile that works out of the box, which is why it
 is the default and why the release bundle round-trips without it.
 
+### The bundle's glibc floor is 2.35
+
+The bundle is assembled in an `ubuntu:22.04` container, and that is what sets the
+floor: the engine requires `GLIBC_2.34`, so a 20.04 (2.31) build image cannot even
+execute the thing it is packaging — the assembly step's own round trip failed with
+`version 'GLIBC_2.34' not found`. paq8px built against 22.04 needs 2.35, so that is
+the bundle's number. `heavenzip` and `srep` are cross-compiled with zig against 2.28
+and are not the constraint.
+
 ### The glibc floor, learned the hard way again
 
 The first `build-tools` run built paq8px on `ubuntu-latest` and produced a binary
