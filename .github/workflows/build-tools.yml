@@ -143,6 +143,64 @@ jobs:
           sha256sum pkg/paq8px-linux-x86_64.tar.gz > pkg/paq8px-linux-x86_64.tar.gz.sha256
           ls -l pkg
 
+      - name: Build heavenzip itself, in the same old-glibc container
+        # The orchestrator is built where the tools are built, so everything in the
+        # bundle has the same floor. Previously the bundle was assembled by hand,
+        # which is how it ended up shipping an engine whose arguments the profiles
+        # could not use.
+        run: |
+          set -euo pipefail
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j 2
+          ./build/heavenzip version
+
+      - name: Fetch the engine
+        run: |
+          set -euo pipefail
+          apt-get install -y --no-install-recommends curl
+          tag="$(curl -fsSL https://api.github.com/repos/drsamonline/ziptastic/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)"
+          echo "engine release: $tag"
+          curl -fsSL -o /tmp/engine "https://github.com/drsamonline/ziptastic/releases/download/$tag/ziptastic-${tag#v}-linux-x86_64"
+          curl -fsSL -o /tmp/engine.sums "https://github.com/drsamonline/ziptastic/releases/download/$tag/SHA256SUMS"
+          ( cd /tmp && grep "ziptastic-${tag#v}-linux-x86_64$" engine.sums | sha256sum -c - )
+          echo "ENGINE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Assemble the release bundle
+        # Everything a fresh install needs, in one file: the orchestrator, the
+        # engine, paq8px with its source, and the profiles that work with them.
+        run: |
+          set -euo pipefail
+          rm -rf stage && mkdir -p stage/heavenzip/bin stage/heavenzip/docs
+          cp build/heavenzip stage/heavenzip/
+          cp /tmp/engine stage/heavenzip/bin/ziptastic
+          cp /tmp/pqbuild/paq8px stage/heavenzip/bin/paq8px
+          cp /tmp/hcs/old/paq8px/README.md stage/heavenzip/bin/paq8px-README.md 2>/dev/null || true
+          cp /tmp/hcs/LICENSES/GPL-2.0-only.txt stage/heavenzip/bin/paq8px-LICENSE 2>/dev/null || true
+          git -C /tmp/hcs/old/paq8px archive --format=tar.gz -o "$PWD/stage/heavenzip/bin/paq8px-source.tar.gz" HEAD
+          cp -r config stage/heavenzip/config
+          cp LICENSE NOTICE README.md stage/heavenzip/
+          cp docs/PACKAGING.md docs/TOOL_MANIFEST.md stage/heavenzip/docs/
+          printf 'tag      %s\nasset    ziptastic-%s-linux-x86_64\nsha256   %s\nfetched  %s\n' \
+            "$ENGINE_TAG" "${ENGINE_TAG#v}" "$(sha256sum stage/heavenzip/bin/ziptastic | cut -d' ' -f1)" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > stage/heavenzip/bin/ENGINE
+          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px heavenzip > SHA256SUMS )
+          ( cd stage && tar -czf heavenzip-linux-x86_64.tar.gz heavenzip )
+          sha256sum stage/heavenzip-linux-x86_64.tar.gz > stage/heavenzip-linux-x86_64.tar.gz.sha256
+          # it must run where it was built, with the profiles it ships
+          ( cd stage && tar -xzf heavenzip-linux-x86_64.tar.gz && cd heavenzip &&
+            ./heavenzip validate | tail -3 &&
+            echo "round trip through the bundled engine" > rt.txt &&
+            ./heavenzip compress rt.txt >/dev/null &&
+            ./heavenzip decompress rt.txt.hzpkg --out back.txt >/dev/null &&
+            cmp rt.txt back.txt && echo "bundle round-trips" )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heavenzip-bundle
+          path: |
+            stage/heavenzip-linux-x86_64.tar.gz
+            stage/heavenzip-linux-x86_64.tar.gz.sha256
+
       - uses: actions/upload-artifact@v4
         with:
           name: paq8px-linux-x86_64
@@ -163,12 +221,18 @@ jobs:
           name: paq8px-linux-x86_64
           path: pkg
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: heavenzip-bundle
+          path: pkg-bundle
+
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          ls -l pkg
+          ls -l pkg pkg-bundle
           gh release upload "${{ inputs.release_tag }}" \
             pkg/paq8px-linux-x86_64.tar.gz pkg/paq8px-linux-x86_64.tar.gz.sha256 \
+            pkg-bundle/heavenzip-linux-x86_64.tar.gz pkg-bundle/heavenzip-linux-x86_64.tar.gz.sha256 \
             --repo "${{ github.repository }}" --clobber
