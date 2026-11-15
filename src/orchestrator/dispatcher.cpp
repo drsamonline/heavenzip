@@ -1,4 +1,6 @@
 // dispatcher.cpp — the plan for a pipeline. Phase 3 adds the spawn.
+#include <algorithm>
+
 #include "heavenzip/dispatcher.hpp"
 
 #include <cstdlib>
@@ -134,14 +136,35 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     // `program` and the argv it actually used, so the difference is visible.
     const std::string resolved = resolve_program(command.program);
     command.argv.push_back(resolved.empty() ? command.program : resolved);
-    for (const std::string& token : split_args(step.args)) command.argv.push_back(token);
-    command.argv.push_back(current.string());
 
     const bool last = (i + 1 == profile.steps.size());
     const fs::path next = last ? output : fs::path(output.string() + "." + step.name + ".tmp");
-    // The step's own output argument: every compressor in the family writes beside
-    // its input or takes an explicit name, so it is passed explicitly.
-    command.argv.push_back(next.string());
+
+    // A step's arguments may name `{in}` and `{out}` anywhere. Without them the
+    // input and output are appended in that order, which is what ziptastic, srep
+    // and paq8px expect — but not brotli (`-o OUT IN`), nor xz, nor zpaq. Those
+    // tools could not be expressed at all, so the placeholder is what lets a
+    // profile describe them instead of needing a wrapper script per tool.
+    const std::vector<std::string> tokens = split_args(step.args);
+    const bool placed = std::any_of(tokens.begin(), tokens.end(), [](const std::string& token) {
+      return token.find("{in}") != std::string::npos || token.find("{out}") != std::string::npos;
+    });
+    for (const std::string& token : tokens) {
+      std::string expanded = token;
+      const auto replace_all = [&expanded](const std::string& what, const std::string& with) {
+        for (auto at = expanded.find(what); at != std::string::npos;
+             at = expanded.find(what, at + with.size())) {
+          expanded.replace(at, what.size(), with);
+        }
+      };
+      replace_all("{in}", current.string());
+      replace_all("{out}", next.string());
+      command.argv.push_back(expanded);
+    }
+    if (!placed) {
+      command.argv.push_back(current.string());
+      command.argv.push_back(next.string());
+    }
 
     // The reverse of a step: the same binary, its own reverse arguments when the
     // profile gives them, then what it produced and what it consumed. A tool whose
@@ -153,13 +176,41 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     // made every decompress fail with exec 127 on a machine where the forward
     // step had just worked.
     command.reverse.push_back(resolved.empty() ? command.program : resolved);
-    if (!step.reverse_args.empty()) {
-      for (const std::string& token : split_args(step.reverse_args)) command.reverse.push_back(token);
-    } else {
+    const std::vector<std::string> reverse_tokens = split_args(step.reverse_args);
+    const bool reverse_placed =
+        std::any_of(reverse_tokens.begin(), reverse_tokens.end(), [](const std::string& token) {
+          return token.find("{in}") != std::string::npos || token.find("{out}") != std::string::npos;
+        });
+    if (step.reverse_args.empty()) {
       command.reverse.push_back("d");
     }
-    command.reverse.push_back(next.string());   // produced
-    command.reverse.push_back(current.string()); // consumed
+    // In reverse, `{in}` is what the step consumes (the forward output) and `{out}`
+    // is what it restores (the forward input) — the opposite way round from the
+    // forward direction. Getting this backwards made a brotli-shaped tool write its
+    // restore over the file it was reading.
+    for (const std::string& token : reverse_tokens) {
+      std::string expanded = token;
+      const auto replace_all = [&expanded](const std::string& what, const std::string& with) {
+        for (auto at = expanded.find(what); at != std::string::npos;
+             at = expanded.find(what, at + with.size())) {
+          expanded.replace(at, what.size(), with);
+        }
+      };
+      replace_all("{in}", next.string());
+      replace_all("{out}", current.string());
+      command.reverse.push_back(expanded);
+    }
+    if (!reverse_placed) {
+      command.reverse.push_back(next.string());    // produced
+      command.reverse.push_back(current.string()); // consumed
+    }
+    command.reverse_out_index = command.reverse.size() - 1;
+    for (std::size_t k = 1; k < command.reverse.size(); ++k) {
+      if (command.reverse[k] == current.string()) {
+        command.reverse_out_index = k;
+        break;
+      }
+    }
 
     plan.steps.push_back(std::move(command));
     current = next;

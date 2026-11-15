@@ -283,6 +283,7 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome) {
     json << "    {\"step\": \"" << escape(command.step) << "\", "
          << "\"argv\": " << array_of(command.argv) << ", "
          << "\"reverse\": " << array_of(command.reverse) << ", "
+         << "\"reverse_out_index\": " << command.reverse_out_index << ", "
          << "\"exit_code\": " << (step ? step->exit_code : -1) << ", "
          << "\"seconds\": " << number(step ? step->seconds : 0.0) << "}";
     if (i + 1 < plan.steps.size()) json << ",";
@@ -316,6 +317,10 @@ std::vector<ReverseStep> read_reverse_plan(const fs::path& manifest) {
     }
     ReverseStep step;
     step.step = name != nullptr ? (*name)->text : "step";
+    const ValuePtr* out_index = entry->find("reverse_out_index");
+    if (out_index != nullptr && out_index->get()->kind == Value::Kind::Number) {
+      step.out_index = static_cast<std::size_t>(out_index->get()->number);
+    }
     // Prefer the recorded reverse command; fall back to the documented convention
     // only when an older manifest has no `reverse` field.
     const ValuePtr* recorded = entry->find("reverse");
@@ -342,7 +347,11 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     // The last reverse step would write back over the original file; send it to
     // `out` instead, so decompressing never destroys the input it came from.
     if (i + 1 == steps.size() && !out.empty()) {
-      command.argv.back() = out.string();
+      if (command.out_index < command.argv.size()) {
+        command.argv[command.out_index] = out.string();
+      } else {
+        command.argv.back() = out.string();
+      }
     }
     // Clear the file this step is about to produce. The forward run keeps its
     // intermediates, and ziptastic refuses to overwrite ("exists (use -f)"), so
@@ -351,7 +360,9 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     // forward direction does not, which is why only this side clears anything.
     if (!command.argv.empty()) {
       std::error_code ec;
-      fs::remove(command.argv.back(), ec);
+      const std::size_t target = command.out_index < command.argv.size() ? command.out_index
+                                                                       : command.argv.size() - 1;
+      fs::remove(command.argv[target], ec);
     }
 
     StepOutcome step;
