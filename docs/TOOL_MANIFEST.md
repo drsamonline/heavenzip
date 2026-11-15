@@ -20,56 +20,63 @@ rest of this file turns on.
 
 ## Candidates
 
-| tool | stage it would serve | licence | redistribute? |
-|---|---|---|---|
-| **ECT** (`ect.exe`, `ECT`, mac build) | DEFLATE re-encode for ZIP/PDF/PNG | **Apache-2.0** | **YES** |
-| nanozip (`nz.exe`) | strong CM backend | closed source | no |
-| DeflOpt | removes redundant DEFLATE blocks | none stated | no |
-| ECM / UNECM | CD-image ECC strip/restore | GPL | no |
-| CCM 1.20a | CM backend | none stated | no |
-| crush / miniCRUSH | fast CM backend | none stated | no |
-| lzari | educational LZ+arith | none stated | no |
-| Document Press 6.01 | commercial text compressor | commercial | no |
-| ashford | CM backend (source included) | none stated | no |
-| WinRK 3.12 | commercial archiver | commercial | no |
-| Radyx 0.92 | GUI frontend | GPL-3 | no |
-| WABBIE | benchmark GUI | none stated | no |
-| SplitSat | file splitter | none stated | no |
-| NexoPacker | SFX creator (raw Deflate) | none stated | no |
-| `decomp.exe` | 4 KB LZMA decoder | none stated | no |
-| MakeLX | EXE header modifier | none stated | no |
-| ProcProfile | Windows process profiler | GPL-3 | no |
-| `uFNV.pas` | FNV hash unit (source) | none stated | n/a |
+Two questions, two columns. **may run** asks whether heavenzip may spawn it on a
+machine where the user has it; that is a process boundary, so the answer is
+always yes. **may ship** asks whether this repository's release archive may
+*contain* it, and that is decided per licence under the aggregation rule in
+`BUNDLING.md`: a separate program, in its own directory, with its own licence and
+a way to obtain its source.
 
-**Under the bundled design (see `BUNDLING.md`) most of these can ship**, each in its
-own directory with its own licence — but three groups cannot, and they are marked in
-the "bundle?" column below.
+| tool | stage it would serve | licence | may run | may ship |
+|---|---|---|---|---|
+| **ziptastic** | the engine every profile ends with | MIT (this fleet) | yes | **yes** — already shipped by `sync-binaries` |
+| **ECT** (`ect.exe`, `ECT`, mac build) | DEFLATE re-encode for ZIP/PDF/PNG | **Apache-2.0** | yes | **yes** |
+| **preflate** | Deflate re-compression | **Apache-2.0** | yes | **yes** — needs a build, not a permission |
+| **paq8px** | strong CM backend | **GPL-2+** | yes | **yes, with its source** — never inside ziptastic |
+| ECM / UNECM | CD-image ECC strip/restore | GPL | yes | yes, with source |
+| ECM3 | CD-image ECC strip/restore | AGPL-3 | yes | yes, with source |
+| Radyx 0.92 | GUI frontend | GPL-3 | yes | yes, with source (if wanted) |
+| ProcProfile | Windows process profiler | GPL-3 | yes | yes, with source (if wanted) |
+| nanozip (`nz.exe`) | strong CM backend | closed source | yes | **no** — needs the author's permission |
+| Document Press 6.01 | commercial text compressor | commercial | yes | **no** |
+| WinRK 3.12 | commercial archiver | commercial | yes | **no** |
+| DeflOpt | removes redundant DEFLATE blocks | none stated | yes | **no** — all rights reserved |
+| CCM 1.20a | CM backend | none stated | yes | **no** — all rights reserved |
+| crush / miniCRUSH | fast CM backend | none stated | yes | **no** — all rights reserved |
+| lzari | educational LZ+arith | none stated | yes | **no** — all rights reserved |
+| ashford | CM backend (source included) | none stated | yes | **no** — all rights reserved |
+| WABBIE | benchmark GUI | none stated | yes | **no** — all rights reserved |
+| SplitSat | file splitter | none stated | yes | **no** — all rights reserved |
+| NexoPacker | SFX creator (raw Deflate) | none stated | yes | **no** — all rights reserved |
+| `decomp.exe` | 4 KB LZMA decoder | none stated | yes | **no** — all rights reserved |
+| MakeLX | EXE header modifier | none stated | yes | **no** — all rights reserved |
+| `uFNV.pas` | FNV hash unit (source) | none stated | n/a — a unit, not a program | **no** — all rights reserved |
+| **SREP** | huge-dictionary LZ77 preprocessor | **none — all rights reserved** | yes, if the user supplies it | **no, in any form** |
 
-| tool | licence | bundle? |
-|---|---|---|
-| ECT | Apache-2.0 | **yes** |
-| paq8px | GPL-2+ | yes, **with source** |
-| ECM / UNECM | GPL | yes, with source |
-| ECM3 | AGPL-3 | yes, with source |
-| Radyx, ProcProfile | GPL-3 | yes, with source (if wanted) |
-| nanozip, WinRK, Document Press | commercial/closed | **no** — needs the author's permission |
-| CCM, crush, miniCRUSH, lzari, DeflOpt, ashford, WABBIE, SplitSat, NexoPacker, MakeLX, decomp.exe, uFNV | **no licence file** | **no** — all rights reserved |
-| **SREP** | **none** | **no, in any form** |
+This table replaces two that disagreed. The earlier one had a single
+`redistribute?` column that answered "no" for every GPL tool, and a second table
+below it answered "yes, with source" for the same tools. One question was being
+asked twice with different answers, which is worse than not asking it.
 
-## A problem with the current profiles
+## The shipped profiles and what they need
 
-`config/profiles/max-ratio.ini` chains **`srep` + `paq8px`**, and `text.ini` chains
-**`srep`**. Both are fine to *spawn*. Neither is fine to *ship*:
+`config/profiles/max-ratio.ini` chains **`srep` + `paq8px`**, `text.ini` chains
+**`srep`**, and `media.ini` chains **`preflate`**. None of the three is in `bin/`.
 
-- **paq8px** is GPL-2+. Redistributing it inside an MIT project's release would make
-  that release GPL.
-- **SREP** is worse: it has **no licence file at all**, which means all rights
-  reserved. It is not redistributable in *any* form, and it is the one item on this
-  entire shelf that cannot even be shipped as a separate binary.
+- **srep** — all rights reserved, no licence file, not redistributable in any
+  form. The profiles that use it are instructions to a user who already has it;
+  a release may never bundle it. `HCS/LICENSES/sources/srep-HEADER.txt` is the
+  evidence.
+- **paq8px** — GPL-2+. It may ship as a separate program with its licence text
+  and source, in `tools/paq8px/`. It may not be linked into ziptastic, which is
+  the line `ziptastic`'s plugin ABI exists to hold.
+- **preflate** — Apache-2.0, the cheapest of the three to ship: permissive, and
+  only needs a build step, which heavenzip does not do for itself.
 
-So the profiles are correct as *instructions to a user who already has the tools*,
-and would become a licence violation the moment a release bundled `bin/` with them
-in it. That should be stated in the README next to the profile table.
+An earlier version of this file said redistributing paq8px "inside an MIT
+project's release would make that release GPL". That is the rule for *linking*,
+not for aggregating, and it contradicted `BUNDLING.md` on the next page.
+`docs/PACKAGING.md` records the corrected decision.
 
 ## What is worth adding to the profiles
 
