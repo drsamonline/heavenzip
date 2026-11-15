@@ -236,6 +236,10 @@ jobs:
           printf 'tag      %s\nasset    ziptastic-%s-linux-x86_64\nsha256   %s\nfetched  %s\n' \
             "$ENGINE_TAG" "${ENGINE_TAG#v}" "$(sha256sum stage/heavenzip/bin/ziptastic | cut -d' ' -f1)" \
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > stage/heavenzip/bin/ENGINE
+          # curl writes 0644 and the copy keeps it, so the bundled engine was not
+          # executable: the round trip below failed with "exec bin/ziptastic:
+          # Permission denied" while every byte was correct.
+          chmod +x stage/heavenzip/heavenzip stage/heavenzip/bin/*
           ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep heavenzip > SHA256SUMS )
           ( cd stage && tar -czf heavenzip-linux-x86_64.tar.gz heavenzip )
           sha256sum stage/heavenzip-linux-x86_64.tar.gz > stage/heavenzip-linux-x86_64.tar.gz.sha256
