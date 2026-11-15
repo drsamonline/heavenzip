@@ -43,6 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Build tools first
+        # The build image is a bare ubuntu:20.04: no git, no compiler. Installing
+        # first, because the very next step clones and a container without git fails
+        # there rather than here — which is what the first container run did.
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ git ca-certificates file binutils
+
       - name: The vault's paq8px source
         # HCS is not vendored here: heavenzip needs the binary, not the tree. The
         # submodule is the pin, so the build is reproducible from HCS's own record.
@@ -52,12 +61,6 @@ jobs:
           git submodule update --init --depth 1 old/paq8px
           test -f old/paq8px/CMakeLists.txt || { echo "::error::old/paq8px did not materialise"; exit 1; }
           echo "paq8px at $(git -C old/paq8px rev-parse HEAD)"
-
-      - name: Build tools
-        run: |
-          apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ git ca-certificates file binutils
 
       - name: Configure
         run: cmake -S /tmp/hcs/old/paq8px -B /tmp/pqbuild -G Ninja -DCMAKE_BUILD_TYPE=Release
