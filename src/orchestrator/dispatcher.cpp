@@ -147,7 +147,12 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     // profile gives them, then what it produced and what it consumed. A tool whose
     // decompress verb is not `d` says so with `reverse_args`, and the manifest
     // records the result rather than a convention the reader has to guess.
-    command.reverse.push_back(command.program);
+    // The reverse command is spawned too, so it needs the resolved path for the
+    // same reason the forward one does: a profile naming `bin/ziptastic.exe`
+    // must decompress with `bin/ziptastic`. Leaving the configured name here
+    // made every decompress fail with exec 127 on a machine where the forward
+    // step had just worked.
+    command.reverse.push_back(resolved.empty() ? command.program : resolved);
     if (!step.reverse_args.empty()) {
       for (const std::string& token : split_args(step.reverse_args)) command.reverse.push_back(token);
     } else {

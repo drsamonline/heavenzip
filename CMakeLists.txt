@@ -60,6 +60,13 @@ if(HEAVENZIP_BUILD_TESTS)
                    "$<TARGET_FILE:heavenzip>" "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
                    "${CMAKE_CURRENT_SOURCE_DIR}")
 
+  # Do the profiles we ship work with the engine we ship? Nothing checked that, and
+  # every shipped profile was passing `-c lzma -9` to an engine with no `-c` option.
+  add_test(NAME integration.shipped-profiles
+           COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/shipped-profiles.sh"
+                   "${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+                   "${CMAKE_CURRENT_SOURCE_DIR}")
+
   # Phase 7's exit test: the worked example in docs/PROFILES.md must work.
   add_test(NAME integration.profile-from-docs
            COMMAND bash "${CMAKE_CURRENT_SOURCE_DIR}/tests/profile-from-docs.sh"

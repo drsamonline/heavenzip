@@ -82,6 +82,20 @@ args = --in-place
 reverse_args = --reverse
 ```
 
+### The engine's real options, and the profile that needs nothing else
+
+The shipped profiles used to pass `-c lzma -9` and `-c brotli -q 11` to ziptastic.
+**ziptastic has no `-c` option and no `-q`** — its options are `-9`, `--max-ratio`,
+`--no-cm-stream`, `--no-precomp`, `--no-numeric`. Every shipped profile therefore
+failed at the engine step with `unknown option '-c'`, and nothing noticed because
+no test ran the shipped profiles against the real binary. `integration.shipped-profiles`
+does now: it takes each profile's own `args` and runs them against the engine.
+
+`plain.ini` is new and is the default. Every other profile names a tool a release
+does not carry — `srep` (all rights reserved, cannot ship), `preflate`, `paq8px` —
+so a fresh install could not compress anything at all. `plain` chains the bundled
+engine and nothing else.
+
 ### `bin` and the platform suffix
 
 The shipped profiles name Windows binaries — `bin/srep.exe`, `bin/preflate.exe`,

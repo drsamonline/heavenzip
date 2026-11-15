@@ -36,7 +36,7 @@ void test_text_profile_plans_two_steps() {
                                g_fixtures / "notes.txt.hzpkg");
   CHECK(plan.steps.size() == 2);
   CHECK(plan.steps[0].step == "srep");
-  CHECK(plan.steps[1].step == "ziptastic:lzma");
+  CHECK(plan.steps[1].step == "ziptastic");
   CHECK(plan.found == FileClass::Text);
   CHECK(plan.output == g_fixtures / "notes.txt.hzpkg");
   CHECK(plan.manifest == g_fixtures / "notes.txt.hzpipeline");

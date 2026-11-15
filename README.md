@@ -15,7 +15,7 @@ CHCE orchestrator - chains prebuilt binaries
 
 > **Status: phase 7 done — the plan's phases are complete.** CLI, INI parser,
 > detector, planner, dispatcher, manifest, external-process tier, bench harness and
-> the two reference documents. 8 ctest suites in CI, including a round trip through
+> the two reference documents. 9 ctest suites in CI, including a round trip through
 > the real ziptastic release binary and a test that the worked example in
 > `docs/PROFILES.md` actually works.
 >
