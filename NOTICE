@@ -15,6 +15,43 @@ That is why the fleet has two repos instead of one: `ziptastic` links, and
 therefore carries other people's terms in the artefact it ships; `heavenzip`
 spawns, and does not.
 
+## What a release bundle contains, and under what terms
+
+The release tarball carries every tool a profile can name, so a fresh install does
+not refuse at pre-flight. Each one is a separate program in `bin/`, spawned and
+never linked, and each keeps its own terms:
+
+| Tool | Licence | What travels with it |
+|---|---|---|
+| `ziptastic` | MIT (same fleet) | the binary, verified against its release `SHA256SUMS` |
+| `paq8px` | **GPL-2.0-or-later** | the binary **and its source** (`sources/paq8px-source.tar.gz`) — GPL-2 §3 requires it |
+| `srep` | **no licence granted** | the binary **and its source** (`sources/srep-source.tar.gz`) plus the build recipe; see below |
+| `preflate` | Apache-2.0 | licence text only — it does not compile on POSIX, so no binary |
+
+### `srep` has no licence, and this is what that means
+
+`srep` (SuperREP 3.93a, Bulat Ziganshin) ships in HCS as an unofficial repackage of
+the last known commit. **There is no licence file and no licence statement anywhere
+in that tree.** Absence of a licence is not permission: by default the author
+reserves all rights.
+
+So the bundle does not quietly redistribute it as though it were free. It carries
+the source, a `sources/srep-source.tar.gz` alongside it, and the exact build recipe
+in `docs/PACKAGING.md`, and this notice says plainly that no licence has been
+granted. If you are packaging heavenzip for other people, that is the decision to
+review before you publish — including the binary is a choice the publisher makes,
+not one this repository can make for them.
+
+`srep` is optional. Every profile that names it refuses, naming the program, when
+it is absent; nothing else depends on it.
+
+### `preflate` is Apache-2.0 and does not build here
+
+Its vendored `support/filestream.cpp` calls `_ftelli64` and `_fseeki64`
+unconditionally — MSVC-only names with no `#ifdef` — so it does not compile with
+gcc or clang on Linux. No binary is shipped. Its licence text is included for the
+day it does.
+
 ## What is in this repository that heavenzip did not write
 
 `bin/` holds one compiled binary, committed by the `sync-binaries` workflow:
