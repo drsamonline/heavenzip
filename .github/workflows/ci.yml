@@ -44,6 +44,12 @@ jobs:
       - name: Test
         run: ctest --test-dir build --output-on-failure
 
+      - name: The repository's claims about itself must be true
+        # VERSION, CMakeLists and syc.ini agreed on nothing; the badges said
+        # "tests: none yet" and "build: phase 0" with eight suites registered and
+        # the plan complete. Runs after Test so `ctest -N` has a build to read.
+        run: python3 tools/check-claims.py
+
       - name: The phase-0 exit test, called the way a user calls it
         # ctest runs it too; this runs it from the repository root with no
         # arguments, which is how `config/` is found in practice.
