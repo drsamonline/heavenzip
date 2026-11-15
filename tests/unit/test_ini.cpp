@@ -57,9 +57,9 @@ void test_master_config_parses() {
   CHECK(master.log_level == "info");
   CHECK(!master.ziptastic_bin.empty());
   CHECK(master.default_profile == "plain");
-  CHECK(master.available.size() == 4);
+  CHECK(master.available.size() == 5);
   CHECK(master.available[0] == "plain");
-  CHECK(master.available[3] == "max-ratio");
+  CHECK(master.available[4] == "max-ratio");
 }
 
 void test_every_shipped_profile_parses() {
