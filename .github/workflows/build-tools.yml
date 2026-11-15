@@ -158,13 +158,18 @@ jobs:
           python3 -m pip install --quiet cmake ninja ziglang
           echo "cmake: $(python3 -c 'import cmake,os;print(os.path.join(cmake.CMAKE_BIN_DIR,"cmake"))')"
           python3 -m ziglang version
+          # `-target x86_64-linux-gnu.2.28` sets the glibc floor AND a baseline
+          # CPU. Without the target, zig builds for the machine doing the building,
+          # and the published binary died with "Illegal instruction" on a CPU that
+          # lacks the newer instructions — a failure CI cannot see, because it runs
+          # on the same class of machine that produced it.
           cat > /usr/local/bin/zig-cxx <<'SH'
           #!/usr/bin/env bash
-          exec python3 -m ziglang c++ "$@"
+          exec python3 -m ziglang c++ -target x86_64-linux-gnu.2.28 "$@"
           SH
           cat > /usr/local/bin/zig-cc <<'SH'
           #!/usr/bin/env bash
-          exec python3 -m ziglang cc "$@"
+          exec python3 -m ziglang cc -target x86_64-linux-gnu.2.28 "$@"
           SH
           chmod +x /usr/local/bin/zig-cxx /usr/local/bin/zig-cc
 
@@ -247,7 +252,10 @@ jobs:
           chmod +x stage/heavenzip/heavenzip stage/heavenzip/bin/*
           ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep heavenzip > SHA256SUMS )
           ( cd stage && tar -czf heavenzip-linux-x86_64.tar.gz heavenzip )
-          sha256sum stage/heavenzip-linux-x86_64.tar.gz > stage/heavenzip-linux-x86_64.tar.gz.sha256
+          # Name the file, not the staging path: `sha256sum -c` against a line
+          # reading `stage/heavenzip-...` fails for anyone who downloaded just the
+          # tarball, which is everyone.
+          ( cd stage && sha256sum heavenzip-linux-x86_64.tar.gz > heavenzip-linux-x86_64.tar.gz.sha256 )
           ( cd stage && tar -xzf heavenzip-linux-x86_64.tar.gz && cd heavenzip &&
             ./heavenzip validate | tail -2 &&
             echo "bundle round trip" > rt.txt &&
