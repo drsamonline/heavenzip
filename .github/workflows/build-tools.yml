@@ -75,21 +75,32 @@ jobs:
         run: cmake --build /tmp/pqbuild -j 2
 
       - name: The glibc floor must be the container's, not the runner's
-        # A binary that builds but cannot start on the target platforms is the
-        # defect this fleet has already paid for once. Read the symbol versions it
-        # actually requires and fail if any is newer than the build image's glibc.
+        # A binary that builds but cannot start on the target platforms is the defect
+        # this fleet has already paid for once. Read the symbol versions it actually
+        # requires and fail if any is newer than the build image's glibc.
+        #
+        # No pipelines through `head`: under `set -o pipefail`, `ldd --version |
+        # head -1` fails the step because head closes the pipe and ldd exits 141.
+        # That is what the previous version of this step did — it reported nothing
+        # and failed, which looks exactly like a broken gate.
         run: |
           set -euo pipefail
           PQ=/tmp/pqbuild/paq8px
-          ceiling="$(ldd --version | head -1 | awk '{print $NF}')"
+          ceiling="$(getconf GNU_LIBC_VERSION | awk '{print $2}')"
           echo "build image glibc: $ceiling"
-          worst="$(objdump -T "$PQ" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -V | tail -1)"
+          syms="$(objdump -T "$PQ" | grep -o 'GLIBC_[0-9.]*' | sed 's/GLIBC_//' | sort -Vu || true)"
+          if [ -z "$syms" ]; then
+            echo "::error::no GLIBC symbol versions found in $PQ — is it a static or a wrong binary?"
+            exit 1
+          fi
+          worst="$(printf '%s\n' "$syms" | tail -1)"
           echo "highest symbol version required: $worst"
-          if [ "$(printf '%s\n%s\n' "$worst" "$ceiling" | sort -V | tail -1)" != "$ceiling" ]; then
+          newest="$(printf '%s\n%s\n' "$worst" "$ceiling" | sort -V | tail -1)"
+          if [ "$newest" != "$ceiling" ]; then
             echo "::error::binary requires GLIBC_$worst but the build image only has $ceiling"
             exit 1
           fi
-          echo "ok: nothing newer than the build image's own glibc"
+          echo "ok: nothing newer than the build image's own glibc ($ceiling)"
 
       - name: It must compress and restore the same bytes
         # A binary that builds but cannot round-trip is worse than none: it would be
