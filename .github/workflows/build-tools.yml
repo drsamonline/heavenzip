@@ -207,9 +207,13 @@ jobs:
           apt-get install -y --no-install-recommends curl
           tag="$(curl -fsSL https://api.github.com/repos/drsamonline/ziptastic/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)"
           echo "engine release: $tag"
-          curl -fsSL -o /tmp/engine "https://github.com/drsamonline/ziptastic/releases/download/$tag/ziptastic-${tag#v}-linux-x86_64"
-          curl -fsSL -o /tmp/engine.sums "https://github.com/drsamonline/ziptastic/releases/download/$tag/SHA256SUMS"
-          ( cd /tmp && grep "ziptastic-${tag#v}-linux-x86_64$" engine.sums | sha256sum -c - )
+          # Download under the release's own asset name: `sha256sum -c` matches on
+          # the name recorded in SHA256SUMS, and saving it as `engine` made the
+          # check fail with "No such file or directory" while the file was right there.
+          asset="ziptastic-${tag#v}-linux-x86_64"
+          curl -fsSL -o "/tmp/$asset" "https://github.com/drsamonline/ziptastic/releases/download/$tag/$asset"
+          curl -fsSL -o /tmp/SHA256SUMS "https://github.com/drsamonline/ziptastic/releases/download/$tag/SHA256SUMS"
+          ( cd /tmp && grep " $asset$" SHA256SUMS | sha256sum -c - )
           echo "ENGINE_TAG=$tag" >> "$GITHUB_ENV"
 
       - name: Assemble the bundle
@@ -218,7 +222,7 @@ jobs:
           rm -rf stage && mkdir -p stage/heavenzip/bin stage/heavenzip/docs \
                                   stage/heavenzip/sources
           cp build/heavenzip stage/heavenzip/
-          cp /tmp/engine stage/heavenzip/bin/ziptastic
+          cp "/tmp/ziptastic-${ENGINE_TAG#v}-linux-x86_64" stage/heavenzip/bin/ziptastic
           cp /tmp/pqbuild/paq8px stage/heavenzip/bin/paq8px
           cp /tmp/srep stage/heavenzip/bin/srep
           cp -r config stage/heavenzip/config
