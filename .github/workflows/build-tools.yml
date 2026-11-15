@@ -150,11 +150,25 @@ jobs:
             pkg/paq8px-linux-x86_64.tar.gz
             pkg/paq8px-linux-x86_64.tar.gz.sha256
 
+  publish:
+    # The build container is ubuntu:20.04 for its glibc, and it has no `gh` — the
+    # first attempt to attach from inside it died with `gh: command not found`.
+    # Publishing belongs on the runner, which has the CLI and the token.
+    needs: paq8px
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: paq8px-linux-x86_64
+          path: pkg
+
       - name: Attach to the release
-        if: inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
+          ls -l pkg
           gh release upload "${{ inputs.release_tag }}" \
             pkg/paq8px-linux-x86_64.tar.gz pkg/paq8px-linux-x86_64.tar.gz.sha256 \
             --repo "${{ github.repository }}" --clobber
