@@ -49,7 +49,10 @@ heavenzip bench tests/fixtures/
 
 # 5. let it find the best combination for one file, and keep it as a profile
 heavenzip autotune big-corpus.tar
-heavenzip autotune big-corpus.tar --write best-for-tarballs
+heavenzip autotune big-corpus.tar --write best-for-tarballs --goal ratio
+
+# 6. or write all three trade-offs at once and pick with your eyes
+heavenzip autotune big-corpus.tar --templates ./templates
 ```
 
 `compress` verifies its own output by default: it reverses the archive it just
@@ -61,6 +64,18 @@ check when the time matters more.
 `autotune` runs the combinations the tools in `bin/` make possible, ranks them by
 measured size, and then proves each one by reversing it — smallest first — so a
 candidate that cannot restore its own output is reported rather than ranked.
+
+It reports three winners, because "best" is two questions. On a 120 KB file:
+
+| goal | pipeline | ratio | time |
+|---|---|---|---|
+| smallest | `paq8` | 0.1776 | 31.0 s |
+| fastest | `z9` | 0.1927 | 0.31 s |
+| balanced | `z9` | 0.1927 | 0.31 s |
+
+100× the time for 8 % of the size is a trade a person should make deliberately, not
+a number to be handed. `--goal` picks which one `--write` saves; `--templates <dir>`
+writes `best-ratio.ini`, `best-speed.ini` and `best-balanced.ini` side by side.
 
 ## Build plan
 
