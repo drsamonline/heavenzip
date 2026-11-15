@@ -38,6 +38,12 @@ struct Plan {
 // looked up on PATH. Used by the pre-flight check and by `validate`.
 bool program_available(const std::string& program);
 
+// The path that will actually be spawned: the name as configured if it exists,
+// otherwise the same name with the platform's suffix convention applied
+// (`bin/srep.exe` -> `bin/srep` on POSIX; `bin/srep` -> `bin/srep.exe` on
+// Windows). Empty when neither exists. `program_available` is this, non-empty.
+std::string resolve_program(const std::string& program);
+
 // Resolve the profile and build the plan. Throws std::runtime_error when the
 // profile does not match the file, or when a step's program cannot be resolved.
 //

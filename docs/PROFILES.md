@@ -82,6 +82,30 @@ args = --in-place
 reverse_args = --reverse
 ```
 
+### `bin` and the platform suffix
+
+The shipped profiles name Windows binaries — `bin/srep.exe`, `bin/preflate.exe`,
+`bin/paq8px.exe` — because that is where the shelf came from, while a Linux
+release of the engine is `ziptastic-1.4.2-linux-x86_64`. Nothing used to bridge
+that, so a profile was correct on one platform and a refusal on the other.
+
+The path is resolved, in this order:
+
+1. the name exactly as written, if it exists;
+2. otherwise, the same name with the platform's own convention applied —
+   `.exe` **stripped** on POSIX, `.exe` **added** on Windows.
+
+So `bin/preflate.exe` runs `bin/preflate` on Linux without editing the profile,
+and `bin/srep` finds `bin/srep.exe` on Windows. The configured name is tried
+first, so an explicit path that exists is never second-guessed, and the manifest
+still records the name the profile used — the argv shows what actually ran.
+
+One thing this does not do: the engine's release asset is
+`ziptastic-1.4.2-linux-x86_64`, which is neither `ziptastic` nor `ziptastic.exe`.
+`bin/ENGINE` records the tag and asset, and `syc.ini`'s `ziptastic_bin` must name
+the file that is there — a symlink or the full name. Suffix resolution is a
+convenience for the shelf, not a substitute for a correct path.
+
 ## A worked example: `music.ini`
 
 Goal: a profile that fires on MP3 and leaves everything else alone.

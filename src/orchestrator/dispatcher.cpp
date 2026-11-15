@@ -33,20 +33,70 @@ std::string StepCommand::shell_line() const {
   return line;
 }
 
-bool program_available(const std::string& program) {
-  if (program.empty()) return false;
-  if (program.find('/') != std::string::npos || program.find('\\') != std::string::npos) {
-    return fs::exists(program);
+namespace {
+
+// The shipped profiles name Windows binaries (`bin/srep.exe`) because that is
+// where the shelf came from, while a Linux release of the engine is
+// `ziptastic-1.4.2-linux-x86_64`. Nothing resolved the difference, so a profile
+// was correct on one platform and a refusal on the other.
+//
+// The candidate list is the name as written, then the name with the platform's
+// own convention applied: `.exe` stripped on POSIX, `.exe` added on Windows. The
+// configured name is always tried first, so an explicit path that exists is
+// never second-guessed.
+std::vector<std::string> suffix_candidates(const std::string& program) {
+  std::vector<std::string> candidates{program};
+#ifdef _WIN32
+  const std::string exe = ".exe";
+  if (program.size() < exe.size() ||
+      program.compare(program.size() - exe.size(), exe.size(), exe) != 0) {
+    candidates.push_back(program + exe);
   }
+#else
+  const std::string exe = ".exe";
+  if (program.size() > exe.size() &&
+      program.compare(program.size() - exe.size(), exe.size(), exe) == 0) {
+    candidates.push_back(program.substr(0, program.size() - exe.size()));
+  }
+#endif
+  return candidates;
+}
+
+bool exists_on_path(const std::string& program) {
   const char* path = std::getenv("PATH");
   if (path == nullptr) return false;
+#ifdef _WIN32
+  const char separator = ';';
+#else
+  const char separator = ':';
+#endif
   std::stringstream stream(path);
   std::string directory;
-  while (std::getline(stream, directory, ':')) {
+  while (std::getline(stream, directory, separator)) {
     if (directory.empty()) continue;
     if (fs::exists(fs::path(directory) / program)) return true;
   }
   return false;
+}
+
+}  // namespace
+
+std::string resolve_program(const std::string& program) {
+  if (program.empty()) return {};
+  const bool has_separator =
+      program.find('/') != std::string::npos || program.find('\\') != std::string::npos;
+  for (const std::string& candidate : suffix_candidates(program)) {
+    if (has_separator) {
+      if (fs::exists(candidate)) return candidate;
+    } else if (exists_on_path(candidate)) {
+      return candidate;
+    }
+  }
+  return {};
+}
+
+bool program_available(const std::string& program) {
+  return !resolve_program(program).empty();
 }
 
 Plan build_plan(const MasterConfig& master, const Profile& profile, const std::string& profile_name,
@@ -79,7 +129,11 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     command.step = step.name;
     command.program = step.bin.empty() ? master.ziptastic_bin : step.bin;
 
-    command.argv.push_back(command.program);
+    // Spawn what resolves, not what was written: on POSIX a profile naming
+    // `bin/srep.exe` runs `bin/srep`. The manifest records the configured name in
+    // `program` and the argv it actually used, so the difference is visible.
+    const std::string resolved = resolve_program(command.program);
+    command.argv.push_back(resolved.empty() ? command.program : resolved);
     for (const std::string& token : split_args(step.args)) command.argv.push_back(token);
     command.argv.push_back(current.string());
 
