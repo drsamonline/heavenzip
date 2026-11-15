@@ -23,7 +23,9 @@ pipeline = ziptastic
 [ziptastic]
 args = c -9
 INI
-sed -i 's/^available = .*/available = text, media, max-ratio, music/' "$WORK/config/syc.ini"
+# Append rather than replace: the shipped list is the thing being extended, and
+# hardcoding it here meant adding a profile broke this test instead of exercising it.
+sed -i 's/^available = \(.*\)$/available = \1, music/' "$WORK/config/syc.ini"
 
 echo "-- validate sees it"
 "$BIN" validate --config "$WORK/config" | grep -q 'ok    config/profiles/music.ini' || {
