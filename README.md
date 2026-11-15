@@ -48,6 +48,22 @@ heavenzip decompress notes.txt.hzpkg --out restored.txt
 heavenzip bench tests/fixtures/
 ```
 
+## Build plan
+
+The plan has eight phases (`AGENT_PROMPT.md` §12 asks for this table to be kept
+here after every phase; it was not, and the prose above drifted away from it).
+
+| Phase | Status | Notes |
+|---|---|---|
+| 0 | done | CLI skeleton, INI parser |
+| 1 | done | content detector — magic bytes, then a printable-ratio test |
+| 2 | done | profile matcher, dry-run dispatcher |
+| 3 | done | real dispatcher: spawns each step, keeps logs, stops on failure |
+| 4 | done | ziptastic integration; `<input>.hzpipeline` manifest with reverse args |
+| 5 | done | external-process tier — steps whose binary is not ziptastic |
+| 6 | done | `validate`, and the bench harness |
+| 7 | done | `docs/PROFILES.md`, `docs/PIPELINE.md` |
+
 ## Profile catalog
 
 | Profile | detect | Pipeline | What it is for |
