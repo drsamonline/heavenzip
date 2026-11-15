@@ -143,22 +143,112 @@ jobs:
           sha256sum pkg/paq8px-linux-x86_64.tar.gz > pkg/paq8px-linux-x86_64.tar.gz.sha256
           ls -l pkg
 
-      # NOT HERE YET: building heavenzip in this container.
-      #
-      # heavenzip's CMakeLists requires CMake >= 3.20 and C++20; ubuntu:20.04 ships
-      # CMake 3.16 and gcc 9, so `cmake -S . -B build` fails at configure. The
-      # container was chosen for paq8px's glibc floor, and the two requirements do
-      # not meet in one image yet:
-      #
-      #   ubuntu:20.04  glibc 2.31  cmake 3.16  gcc 9    -> too old to configure
-      #   debian:11     glibc 2.31  cmake 3.18  gcc 10   -> cmake still short
-      #   ubuntu:22.04  glibc 2.35  cmake 3.22  gcc 11   -> works, but raises the
-      #                                                     floor above ziptastic's 2.34
-      #
-      # The next step is a newer cmake inside an old-glibc image (pip install cmake,
-      # or the official cmake tarball) and then to check that gcc 10 accepts the
-      # C++20 heavenzip uses. Until that is proven, the release bundle stays as it is:
-      # assembled by hand, with paq8px attached separately by this workflow.
+      - name: zig and a newer cmake, inside the old-glibc container
+        # heavenzip needs CMake >= 3.20 and C++20; ubuntu:20.04 has CMake 3.16 and
+        # gcc 9. Rather than raise the glibc floor by moving to a newer image, the
+        # container keeps its glibc 2.31 and gets a current cmake plus zig's clang,
+        # which handles C++20 and cross-compiles against an older libc.
+        run: |
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends python3-pip
+          python3 -m pip install --quiet cmake ninja ziglang
+          echo "cmake: $(python3 -c 'import cmake,os;print(os.path.join(cmake.CMAKE_BIN_DIR,"cmake"))')"
+          python3 -m ziglang version
+          cat > /usr/local/bin/zig-cxx <<'SH'
+          #!/usr/bin/env bash
+          exec python3 -m ziglang c++ "$@"
+          SH
+          cat > /usr/local/bin/zig-cc <<'SH'
+          #!/usr/bin/env bash
+          exec python3 -m ziglang cc "$@"
+          SH
+          chmod +x /usr/local/bin/zig-cxx /usr/local/bin/zig-cc
+
+      - name: Build heavenzip with zig
+        run: |
+          set -euo pipefail
+          CM=$(python3 -c 'import cmake,os;print(os.path.join(cmake.CMAKE_BIN_DIR,"cmake"))')
+          "$CM" -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=/usr/local/bin/zig-cc \
+            -DCMAKE_CXX_COMPILER=/usr/local/bin/zig-cxx
+          "$CM" --build build -j 2
+          ./build/heavenzip version
+
+      - name: Build srep with zig
+        # srep has no licence file and no statement granting redistribution, so the
+        # bundle carries its SOURCE and this build recipe, and NOTICE says exactly
+        # that. Building it here rather than shipping a binary of unlicensed code is
+        # the difference between "included" and "redistributed".
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/shim/sys && : > /tmp/shim/sys/sysctl.h
+          cd /tmp/hcs/old/srep-main
+          zig-cxx -I/tmp/shim -target x86_64-linux-gnu.2.28 \
+            -ICompression -ICompression/_Encryption \
+            -ICompression/_Encryption/headers -ICompression/_Encryption/hashes \
+            -DFREEARC_UNIX -DFREEARC_INTEL_BYTE_ORDER -D_FILE_OFFSET_BITS=64 \
+            -O3 -msse2 -Wno-write-strings -Wno-unused-result \
+            -o /tmp/srep Compression/Common.cpp Compression/SREP/srep.cpp \
+            -lpthread -lstdc++
+          /tmp/srep -h >/dev/null 2>&1 || true
+          echo "srep built: $(stat -c%s /tmp/srep) bytes"
+
+      - name: srep must round-trip
+        run: |
+          set -euo pipefail
+          head -c 200000 /dev/urandom | base64 > /tmp/s.txt
+          /tmp/srep -l4k -m1f /tmp/s.txt /tmp/s.srep
+          /tmp/srep -d /tmp/s.srep /tmp/s.back
+          cmp /tmp/s.txt /tmp/s.back
+          echo "srep round trip ok"
+
+      - name: Fetch the engine
+        run: |
+          set -euo pipefail
+          apt-get install -y --no-install-recommends curl
+          tag="$(curl -fsSL https://api.github.com/repos/drsamonline/ziptastic/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)"
+          echo "engine release: $tag"
+          curl -fsSL -o /tmp/engine "https://github.com/drsamonline/ziptastic/releases/download/$tag/ziptastic-${tag#v}-linux-x86_64"
+          curl -fsSL -o /tmp/engine.sums "https://github.com/drsamonline/ziptastic/releases/download/$tag/SHA256SUMS"
+          ( cd /tmp && grep "ziptastic-${tag#v}-linux-x86_64$" engine.sums | sha256sum -c - )
+          echo "ENGINE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Assemble the bundle
+        run: |
+          set -euo pipefail
+          rm -rf stage && mkdir -p stage/heavenzip/bin stage/heavenzip/docs \
+                                  stage/heavenzip/sources
+          cp build/heavenzip stage/heavenzip/
+          cp /tmp/engine stage/heavenzip/bin/ziptastic
+          cp /tmp/pqbuild/paq8px stage/heavenzip/bin/paq8px
+          cp /tmp/srep stage/heavenzip/bin/srep
+          cp -r config stage/heavenzip/config
+          cp LICENSE NOTICE README.md stage/heavenzip/
+          cp docs/PACKAGING.md docs/TOOL_MANIFEST.md docs/PROFILES.md stage/heavenzip/docs/
+          # sources for everything that is GPL or has no licence at all
+          git -C /tmp/hcs/old/paq8px archive --format=tar.gz -o "$PWD/stage/heavenzip/sources/paq8px-source.tar.gz" HEAD
+          ( cd /tmp/hcs/old/srep-main && tar --exclude=.git -czf "$OLDPWD/stage/heavenzip/sources/srep-source.tar.gz" . )
+          cp /tmp/hcs/LICENSES/GPL-2.0-only.txt stage/heavenzip/sources/paq8px-LICENSE 2>/dev/null || true
+          cp /tmp/hcs/LICENSES/APACHE-2.0.txt stage/heavenzip/sources/preflate-LICENSE 2>/dev/null || true
+          printf 'tag      %s\nasset    ziptastic-%s-linux-x86_64\nsha256   %s\nfetched  %s\n' \
+            "$ENGINE_TAG" "${ENGINE_TAG#v}" "$(sha256sum stage/heavenzip/bin/ziptastic | cut -d' ' -f1)" \
+            "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > stage/heavenzip/bin/ENGINE
+          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep heavenzip > SHA256SUMS )
+          ( cd stage && tar -czf heavenzip-linux-x86_64.tar.gz heavenzip )
+          sha256sum stage/heavenzip-linux-x86_64.tar.gz > stage/heavenzip-linux-x86_64.tar.gz.sha256
+          ( cd stage && tar -xzf heavenzip-linux-x86_64.tar.gz && cd heavenzip &&
+            ./heavenzip validate | tail -2 &&
+            echo "bundle round trip" > rt.txt &&
+            ./heavenzip compress rt.txt >/dev/null &&
+            ./heavenzip decompress rt.txt.hzpkg --out back.txt >/dev/null &&
+            cmp rt.txt back.txt && echo "bundle round-trips" )
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heavenzip-bundle
+          path: |
+            stage/heavenzip-linux-x86_64.tar.gz
+            stage/heavenzip-linux-x86_64.tar.gz.sha256
+
       - uses: actions/upload-artifact@v4
         with:
           name: paq8px-linux-x86_64
@@ -178,6 +268,11 @@ jobs:
         with:
           name: paq8px-linux-x86_64
           path: pkg
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: heavenzip-bundle
+          path: pkg-bundle
 
       - uses: actions/download-artifact@v4
         with:
