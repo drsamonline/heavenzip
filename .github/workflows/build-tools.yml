@@ -1,0 +1,114 @@
+name: build-tools
+
+# heavenzip never builds a compressor. That rule is about the *orchestrator*: it
+# links nothing and shells out to prebuilt binaries. But nobody else was building
+# the tools either, so `bin/` only ever held the engine and every profile that
+# needed paq8px refused.
+#
+# This builds paq8px from the vault with the system g++, smoke-tests it, and can
+# attach it to a release. It builds rather than downloads because upstream
+# publishes no Linux binary.
+#
+# Why g++ and not the zig toolchain the fleet uses locally: paq8px's CMakeLists
+# passes GCC-only flags (`-floop-strip-mine`, `-fgcse-sm`), which clang rejects with
+# `unknown clang option`. The runner has g++.
+#
+# Licence: paq8px is GPL-2+. It ships as a separate program in its own directory,
+# with its source, and is never linked into heavenzip. See docs/PACKAGING.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to attach the binary to (leave empty to only build)'
+        required: false
+        default: ''
+      hcs_ref:
+        description: 'HCS ref to build paq8px from'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  paq8px:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: The vault's paq8px source
+        # HCS is not vendored here: heavenzip needs the binary, not the tree. The
+        # submodule is the pin, so the build is reproducible from HCS's own record.
+        run: |
+          git clone --depth 1 --branch "${{ inputs.hcs_ref }}" https://github.com/drsamonline/HCS.git /tmp/hcs
+          cd /tmp/hcs
+          git submodule update --init --depth 1 old/paq8px
+          test -f old/paq8px/CMakeLists.txt || { echo "::error::old/paq8px did not materialise"; exit 1; }
+          echo "paq8px at $(git -C old/paq8px rev-parse HEAD)"
+
+      - name: Build tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake ninja-build g++
+
+      - name: Configure
+        run: cmake -S /tmp/hcs/old/paq8px -B /tmp/pqbuild -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build /tmp/pqbuild -j 2
+
+      - name: It must compress and restore the same bytes
+        # A binary that builds but cannot round-trip is worse than none: it would be
+        # bundled, pass `validate`, and fail on the user's file.
+        run: |
+          set -euo pipefail
+          PQ=/tmp/pqbuild/paq8px
+          test -x "$PQ" || { echo "::error::no paq8px binary"; exit 1; }
+          "$PQ" 2>&1 | head -5 || true
+          head -c 200000 /dev/urandom | base64 > /tmp/in.txt
+          "$PQ" -5 /tmp/in.txt /tmp/out.paq
+          "$PQ" -d /tmp/out.paq /tmp/back.txt
+          cmp /tmp/in.txt /tmp/back.txt
+          echo "round trip ok: $(stat -c%s /tmp/in.txt) B -> $(stat -c%s /tmp/out.paq) B"
+
+      - name: Package it with its source and its licence
+        # GPL-2+ means the source has to travel. Shipping the binary alone would be a
+        # licence violation, which is the one thing this fleet is careful about.
+        run: |
+          set -euo pipefail
+          mkdir -p pkg/paq8px
+          cp /tmp/pqbuild/paq8px pkg/paq8px/paq8px
+          cp /tmp/hcs/old/paq8px/README.md pkg/paq8px/ 2>/dev/null || true
+          cp /tmp/hcs/old/paq8px/CHANGELOG pkg/paq8px/ 2>/dev/null || true
+          # licence text: paq8px states it in its README and HCS collected the notice
+          cp /tmp/hcs/LICENSES/GPL-2.0-only.txt pkg/paq8px/LICENSE 2>/dev/null || true
+          git -C /tmp/hcs/old/paq8px archive --format=tar.gz -o "$PWD/pkg/paq8px/paq8px-source.tar.gz" HEAD
+          cat > pkg/paq8px/PROVENANCE.md <<EOF
+          # paq8px
+
+          Built from HCS \`old/paq8px\` at \`$(git -C /tmp/hcs/old/paq8px rev-parse HEAD)\`
+          (HCS \`${{ inputs.hcs_ref }}\`), with \`g++\` and the upstream CMakeLists unchanged.
+
+          Licence: GPL-2.0-or-later — see \`LICENSE\`. The source is included as
+          \`paq8px-source.tar.gz\`, because GPL-2 §3 requires it to travel with the
+          binary. paq8px is spawned as a separate program and is never linked into
+          heavenzip.
+          EOF
+          (cd pkg && tar -czf paq8px-linux-x86_64.tar.gz paq8px)
+          sha256sum pkg/paq8px-linux-x86_64.tar.gz > pkg/paq8px-linux-x86_64.tar.gz.sha256
+          ls -l pkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: paq8px-linux-x86_64
+          path: |
+            pkg/paq8px-linux-x86_64.tar.gz
+            pkg/paq8px-linux-x86_64.tar.gz.sha256
+
+      - name: Attach to the release
+        if: inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ inputs.release_tag }}" \
+            pkg/paq8px-linux-x86_64.tar.gz pkg/paq8px-linux-x86_64.tar.gz.sha256 \
+            --repo "${{ github.repository }}" --clobber
