@@ -70,6 +70,42 @@ that would report success for a pipeline that did not do what the profile says.
 `validate` warns by default and fails under `--require-bins`, which is the right
 split — a fresh clone has no binaries, and a release check does.
 
+## Why neither bundled tool exists yet, specifically
+
+Both were attempted on 15 Nov 2026, and both fail for a reason that is not "nobody
+got round to it". Recorded here so the next session starts from the facts.
+
+**preflate does not build on POSIX at all.** `support/filestream.cpp` calls
+`_ftelli64` and `_fseeki64` unconditionally — MSVC-only names with no `#ifdef`.
+Compiling it with clang gives:
+
+```
+support/filestream.cpp:34:10: error: use of undeclared identifier '_ftelli64'
+support/filestream.cpp:38:3: error: use of undeclared identifier '_fseeki64'
+```
+
+The fix is a two-line patch (`ftello`/`fseeko`), and the fleet's rule is that
+vendored source is not patched — so this needs either an upstream patch or a
+deliberate decision to carry one. It is also why `media` has never run: the
+profile names `preflate` with `--in-place`, which is not preflate's CLI either
+(its options are `-s` to split, `-r`/`-x` to recombine, producing **two** files
+rather than the one-in-one-out a heavenzip step expects). Even a built preflate
+needs an adapter before that profile can work.
+
+**paq8px builds with g++ but not with the zig toolchain.** Its `CMakeLists.txt`
+passes GCC-only flags:
+
+```
+error: unknown clang option: "-floop-strip-mine"
+```
+
+CI installs `g++` and would build it; the sandbox that wrote this could not, so
+the bundle could not be verified. Shipping an unverified binary would break the
+one rule this fleet keeps, so it waits for a CI job that builds and attaches it.
+
+Net effect: `plain` is the only profile that works out of the box, which is why it
+is the default and why the release bundle round-trips without it.
+
 ## Two follow-ups this decision creates
 
 1. **`TOOL_MANIFEST.md`'s `redistribute?` column** should become two columns,
