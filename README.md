@@ -64,6 +64,14 @@ here after every phase; it was not, and the prose above drifted away from it).
 | 6 | done | `validate`, and the bench harness |
 | 7 | done | `docs/PROFILES.md`, `docs/PIPELINE.md` |
 
+## What ships
+
+A default release carries one binary: ziptastic, fetched by `sync-binaries`. The
+shipped profiles name three more — `srep`, `preflate`, `paq8px` — and the decision
+on which of those a release may ever include, and what a profile does when one is
+absent, is written down in [docs/PACKAGING.md](docs/PACKAGING.md).
+
+
 ## Profile catalog
 
 | Profile | detect | Pipeline | What it is for |
