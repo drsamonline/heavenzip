@@ -45,6 +45,9 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome);
 struct ReverseStep {
   std::string step;
   std::vector<std::string> argv;
+  // Where the restored file is named inside `argv`. Recorded per step because a
+  // brotli-shaped tool puts it in the middle (`-o OUT IN`), not last.
+  std::size_t out_index = 0;
 };
 std::vector<ReverseStep> read_reverse_plan(const std::filesystem::path& manifest);
 

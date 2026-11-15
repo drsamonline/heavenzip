@@ -100,6 +100,30 @@ it first.
 `[profiles] available`, with the measured ratio in a comment and a warning to
 re-measure on a different corpus. It never overwrites an existing profile.
 
+### Tools whose arguments are not `input output`
+
+By default a step's arguments are followed by the input and then the output, which
+is what ziptastic, srep and paq8px expect. Plenty of compressors do not: brotli
+wants `-o OUT IN`, xz wants a redirect, zpaq wants `a ARCHIVE FILE`. Those tools
+could not be expressed as a step at all.
+
+A step's `args` and `reverse_args` may now name `{in}` and `{out}` anywhere. When
+either appears, the input and output are not appended — the placeholders are the
+whole argument list:
+
+```ini
+[brotli]
+bin = bin/brotli.exe
+args = -q 11 -o {out} {in}
+reverse_args = -d -o {out} {in}
+```
+
+In reverse the two swap meaning, because reversing runs backwards through the same
+step: `{in}` is what the step consumes (the forward output) and `{out}` is what it
+restores (the forward input). The manifest records `reverse_out_index`, the position
+of the restored file inside the reverse argv, so decompression replaces the right
+argument instead of assuming it is last — which for `-o OUT IN` it is not.
+
 ### The engine's real options, and the profile that needs nothing else
 
 The shipped profiles used to pass `-c lzma -9` and `-c brotli -q 11` to ziptastic.

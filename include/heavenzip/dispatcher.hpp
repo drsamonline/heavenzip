@@ -19,6 +19,10 @@ struct StepCommand {
   std::string program;  // step's bin, or ziptastic_bin from [general]
   std::vector<std::string> argv;      // program first, then its arguments
   std::vector<std::string> reverse;   // the command that undoes this step
+  // Where in `reverse` the restored file is named. It is the last argument for the
+  // `tool d IN OUT` convention, but brotli-shaped tools put it in the middle
+  // (`-o OUT IN`), so the index is recorded rather than assumed.
+  std::size_t reverse_out_index = 0;
 
   // Shell-quoted for humans: `bin/ziptastic.exe -c lzma -9 "in put.txt"`.
   std::string shell_line() const;

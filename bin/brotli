@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# stand-in for brotli: same argument shape, -o OUT IN
+out=""; in=""; while [ $# -gt 0 ]; do case "$1" in -q) shift;; -d) shift;; -o) out="$2"; shift 2;; *) in="$1"; shift;; esac; done
+if [ -n "$DEC" ]; then cp "$in" "$out"; else cp "$in" "$out"; fi
