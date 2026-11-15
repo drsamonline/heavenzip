@@ -48,6 +48,13 @@ heavenzip decompress notes.txt.hzpkg --out restored.txt
 heavenzip bench tests/fixtures/
 ```
 
+## What ships
+
+A default release carries one binary: ziptastic, fetched by `sync-binaries`. The
+shipped profiles name three more — `srep`, `preflate`, `paq8px` — and the decision
+on which of those a release may ever include, and what a profile does when one is
+absent, is written down in [docs/PACKAGING.md](docs/PACKAGING.md).
+
 ## Profile catalog
 
 | Profile | detect | Pipeline | What it is for |
