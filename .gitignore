@@ -9,3 +9,4 @@ bin/preflate.exe
 *.tmp
 *.bak
 .DS_Store
+build/

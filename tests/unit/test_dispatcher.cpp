@@ -1,5 +1,6 @@
 // test_dispatcher.cpp — phase 2: the right profile, and the argv it would run.
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
@@ -114,6 +115,57 @@ void test_program_availability_is_checked() {
   CHECK(!program_available("a-binary-that-does-not-exist-anywhere"));
 }
 
+void test_a_windows_shaped_profile_resolves_on_this_platform() {
+  // The shipped profiles say `bin/srep.exe`; a Linux release has `bin/srep`. The
+  // resolver must bridge that, or every profile is a refusal on one platform.
+  //
+  // Only ONE of the two names exists in each case, so the fallback is what is
+  // being tested — with both present the configured name wins and the test would
+  // pass without the resolver doing anything.
+  const fs::path dir = fs::temp_directory_path() / "heavenzip-suffix-test";
+  fs::remove_all(dir);
+  fs::create_directories(dir);
+
+#ifdef _WIN32
+  const fs::path present = dir / "tool.exe";   // only the .exe exists
+  { std::ofstream(present.string()) << "x"; }
+  CHECK(resolve_program((dir / "tool").string()) == present.string());
+  CHECK(program_available((dir / "tool").string()));
+  CHECK(resolve_program(present.string()) == present.string());
+#else
+  const fs::path present = dir / "tool";       // only the bare name exists
+  { std::ofstream(present.string()) << "x"; }
+  CHECK(resolve_program((dir / "tool.exe").string()) == present.string());
+  CHECK(program_available((dir / "tool.exe").string()));
+  CHECK(resolve_program(present.string()) == present.string());
+#endif
+
+  // Nothing there is still nothing, in either spelling.
+  CHECK(resolve_program((dir / "absent.exe").string()).empty());
+  CHECK(resolve_program((dir / "absent").string()).empty());
+
+  fs::remove_all(dir);
+}
+
+void test_a_plan_spawns_the_resolved_path() {
+  const fs::path dir = fs::temp_directory_path() / "heavenzip-resolve-plan";
+  fs::create_directories(dir);
+  const fs::path bare = dir / "engine";
+  { std::ofstream(bare.string()) << "x"; }
+
+  const Profile custom =
+      Profile::parse("[route]\ndetect = any\npipeline = only\n[only]\nbin = " +
+                         (dir / "engine.exe").string() + "\nargs = -9\n",
+                     "inline");
+  const Plan plan = build_plan(master(), custom, "custom", g_fixtures / "notes.txt",
+                               g_fixtures / "r.hzpkg");
+  // argv[0] is what will be spawned; `program` stays as configured.
+  CHECK(plan.steps[0].argv[0] == bare.string());
+  CHECK(plan.steps[0].program == (dir / "engine.exe").string());
+
+  fs::remove_all(dir);
+}
+
 void test_shell_line_quotes_spaces() {
   StepCommand command;
   command.step = "s";
@@ -155,6 +207,8 @@ int main(int argc, char** argv) {
       {"reverse honours reverse_args", test_reverse_uses_reverse_args_when_given},
       {"reverse defaults to d", test_reverse_defaults_to_the_d_verb},
       {"program availability", test_program_availability_is_checked},
+      {"windows-shaped profile resolves", test_a_windows_shaped_profile_resolves_on_this_platform},
+      {"plan spawns the resolved path", test_a_plan_spawns_the_resolved_path},
       {"shell line quotes spaces", test_shell_line_quotes_spaces},
       {"single step writes to output", test_single_step_plan_writes_straight_to_output},
   };
