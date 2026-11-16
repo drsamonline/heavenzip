@@ -53,6 +53,43 @@ jobs:
           ctest --test-dir build -C Release --output-on-failure || {
             echo "::error::heavenzip's tests fail on Windows"; exit 1; }
 
+      - name: Build the engine for Windows, in this job
+        # Cross-repo artefact download needs a token this job does not have (GITHUB_TOKEN
+        # is scoped to this repository), so the engine is built here. It is the only way
+        # to prove the two halves work together without a personal access token.
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 https://github.com/drsamonline/ziptastic.git engine
+          cd engine
+          git submodule update --init --depth 1
+          cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release --target ziptastic
+          exe="$(find build -name 'ziptastic.exe' -type f -print -quit)"
+          test -n "$exe" || { echo "::error::no ziptastic.exe"; exit 1; }
+          mkdir -p "$GITHUB_WORKSPACE/bin"
+          cp "$exe" "$GITHUB_WORKSPACE/bin/ziptastic.exe"
+          "$GITHUB_WORKSPACE/bin/ziptastic.exe" version
+
+      - name: A real round trip, on Windows
+        # What has never happened: heavenzip.exe driving ziptastic.exe on Windows, with
+        # the archive verified. The config names `bin/ziptastic.exe`, so the engine goes
+        # where the profile expects it.
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe="$(find build -name 'heavenzip.exe' -type f -print -quit)"
+          work="$GITHUB_WORKSPACE/rt"
+          rm -rf "$work" && mkdir -p "$work"
+          cp "$exe" "$work/heavenzip.exe"
+          cp -r config "$work/config"
+          cd "$work"
+          head -c 40000 /dev/urandom | base64 > input.txt
+          ./heavenzip.exe compress input.txt --profile plain
+          ./heavenzip.exe decompress input.txt.hzpkg --out restored.txt
+          cmp input.txt restored.txt
+          echo "windows round trip ok: $(stat -c%s input.txt) bytes"
+
       - name: The CLI runs and reads its config
         shell: bash
         run: |
