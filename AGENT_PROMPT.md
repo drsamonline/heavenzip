@@ -319,8 +319,10 @@ ctest --test-dir build --output-on-failure
 
 ## 11. Read `docs/TRAPS.md` first
 
-Ten traps this repository has already sprung, each one costing real time at least
-once: an exit code of 0 that means nothing, a CI round trip that cannot see a
+Ten traps this repository has already sprung, plus three fleet registers that already
+contain the answer to most questions you are about to ask — ziptastic's
+"measured and rejected" table, the audit repo's session log, and its rule about
+reading state through the API. Each one costing real time at least once: an exit code of 0 that means nothing, a CI round trip that cannot see a
 CPU-class bug, `/tmp` filling up, the shell and packaging details that fail silently,
 the toolchain facts for paq8px/srep/preflate, and the licence facts that decide what
 may ship. None are guessable from the source.

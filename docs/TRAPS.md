@@ -110,7 +110,27 @@ Three separate bugs lived only in the reverse path, each invisible while compres
 Any change to `build_plan` or `run_reverse` needs a two-step round trip through the
 CLI, not just a compress.
 
-## 10. Do not debug in CI
+## 10. Three places that already know the answer
+
+Before measuring or rebuilding anything, check these — in this order. Each has cost
+someone a day already.
+
+**`drsamonline/ziptastic` → `docs/FINDINGS.md` §5, "Measured and rejected — do not
+rebuild these".** Seventeen ideas with the number that killed each one: LZ4
+precompression +50% worse, "zip store" unpacking −1.4%, parallelising the selector no
+gain, a 256 KiB trial for the LZMA2 fallback 1.4 s of a 1.6 MB run. Rebuilding one of
+those is the most expensive mistake available here, because it looks like progress.
+
+**`drsamonline/audit` → `log/YYYY-MM/`.** One file per session, six headings, evidence
+in every one. If a change is not there, it is not part of the fleet's record, however
+green its CI was. Read the entries for the repos you are about to touch.
+
+**`drsamonline/audit` → `README.md`, "Read state through the API, never through raw".**
+`raw.githubusercontent.com` serves a cached copy that lags minutes to hours; it has
+twice made finished work look broken here. Decide whether something worked with
+`GET /repos/{owner}/{repo}/contents/{path}`, not with raw.
+
+## 11. Do not debug in CI
 
 Sleeping five minutes per iteration to read a remote log turned a morning of one-line
 fixes into hours of waiting. Reproduce locally, fix, prove it locally, and use CI as a
