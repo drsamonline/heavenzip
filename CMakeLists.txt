@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 project(heavenzip
-  VERSION 0.1.0
+  VERSION 1.0.0
   DESCRIPTION "CHCE orchestrator — chains prebuilt compression binaries into one pipeline"
   LANGUAGES CXX)
 

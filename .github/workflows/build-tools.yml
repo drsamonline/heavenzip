@@ -262,6 +262,15 @@ jobs:
           # sources for everything that is GPL or has no licence at all
           git -C /tmp/hcs/old/paq8px archive --format=tar.gz -o "$PWD/stage/heavenzip/sources/paq8px-source.tar.gz" HEAD
           ( cd /tmp/hcs/old/srep-main && tar --exclude=.git -czf "$OLDPWD/stage/heavenzip/sources/srep-source.tar.gz" . )
+          # The asset carries the version the binary reports, read from the same
+          # CMakeLists that compiles it. Without this the release had an unversioned
+          # bundle beside an older one whose name looked authoritative.
+          VERSION="$(sed -n 's/^  VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -1)"
+          test -n "$VERSION" || { echo "::error::no VERSION line in CMakeLists.txt"; exit 1; }
+          echo "packaging heavenzip $VERSION"
+          test "$(stage/heavenzip/heavenzip version | sed 's/.* //')" = "$VERSION" || {
+            echo "::error::the binary reports $(stage/heavenzip/heavenzip version), CMakeLists says $VERSION"; exit 1; }
+
           cp /tmp/hcs/LICENSES/GPL-2.0-only.txt stage/heavenzip/sources/paq8px-LICENSE 2>/dev/null || true
           cp /tmp/hcs/LICENSES/APACHE-2.0.txt stage/heavenzip/sources/preflate-LICENSE 2>/dev/null || true
           printf 'tag      %s\nasset    ziptastic-%s-linux-x86_64\nsha256   %s\nfetched  %s\n' \
@@ -272,12 +281,12 @@ jobs:
           # Permission denied" while every byte was correct.
           chmod +x stage/heavenzip/heavenzip stage/heavenzip/bin/*
           ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep bin/brotli heavenzip > SHA256SUMS )
-          ( cd stage && tar -czf heavenzip-linux-x86_64.tar.gz heavenzip )
+          ( cd stage && tar -czf "heavenzip-${VERSION}-linux-x86_64.tar.gz" heavenzip )
           # Name the file, not the staging path: `sha256sum -c` against a line
           # reading `stage/heavenzip-...` fails for anyone who downloaded just the
           # tarball, which is everyone.
-          ( cd stage && sha256sum heavenzip-linux-x86_64.tar.gz > heavenzip-linux-x86_64.tar.gz.sha256 )
-          ( cd stage && tar -xzf heavenzip-linux-x86_64.tar.gz && cd heavenzip &&
+          ( cd stage && sha256sum "heavenzip-${VERSION}-linux-x86_64.tar.gz" > "heavenzip-${VERSION}-linux-x86_64.tar.gz.sha256" )
+          ( cd stage && tar -xzf "heavenzip-${VERSION}-linux-x86_64.tar.gz" && cd heavenzip &&
             ./heavenzip validate | tail -2 &&
             echo "bundle round trip" > rt.txt &&
             ./heavenzip compress rt.txt >/dev/null &&
@@ -288,8 +297,8 @@ jobs:
         with:
           name: heavenzip-bundle
           path: |
-            stage/heavenzip-linux-x86_64.tar.gz
-            stage/heavenzip-linux-x86_64.tar.gz.sha256
+            stage/heavenzip-*-linux-x86_64.tar.gz
+            stage/heavenzip-*-linux-x86_64.tar.gz.sha256
 
       - uses: actions/upload-artifact@v4
         with:
