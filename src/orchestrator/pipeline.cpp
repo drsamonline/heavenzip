@@ -290,7 +290,14 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome) {
     json << "    {\"step\": \"" << escape(command.step) << "\", "
          << "\"argv\": " << array_of(command.argv) << ", "
          << "\"reverse\": " << array_of(command.reverse) << ", "
-         << "\"reverse_out_index\": " << command.reverse_out_index << ", "
+         << "\"reverse_out_index\": "
+         // -1 means "the reverse writes to stdout, there is no argument to replace".
+         // Written as a negative rather than SIZE_MAX because JSON numbers are read
+         // as doubles here, and 2^64-1 does not survive that trip.
+         << (command.reverse_out_index == static_cast<std::size_t>(-1)
+                 ? -1
+                 : static_cast<long long>(command.reverse_out_index))
+         << ", "
          << "\"stdout_to_output\": " << (command.stdout_to_output ? "true" : "false") << ", "
          << "\"exit_code\": " << (step ? step->exit_code : -1) << ", "
          << "\"seconds\": " << number(step ? step->seconds : 0.0) << "}";
@@ -331,7 +338,9 @@ std::vector<ReverseStep> read_reverse_plan(const fs::path& manifest) {
     }
     const ValuePtr* out_index = entry->find("reverse_out_index");
     if (out_index != nullptr && out_index->get()->kind == Value::Kind::Number) {
-      step.out_index = static_cast<std::size_t>(out_index->get()->number);
+      const double recorded = out_index->get()->number;
+      step.out_index = recorded < 0 ? static_cast<std::size_t>(-1)
+                                    : static_cast<std::size_t>(recorded);
     }
     // Prefer the recorded reverse command; fall back to the documented convention
     // only when an older manifest has no `reverse` field.
