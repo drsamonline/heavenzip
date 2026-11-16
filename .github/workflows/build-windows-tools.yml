@@ -43,7 +43,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cmake -S hcs/old/preflate-master -B pfbuild -A x64 -DCMAKE_BUILD_TYPE=Release
+          # preflate's CMakeLists asks for 3.2; CMake 4 refuses anything below 3.5 and
+          # says so by naming the flag that overrides it.
+          cmake -S hcs/old/preflate-master -B pfbuild -A x64 -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build the CLI
         shell: bash
