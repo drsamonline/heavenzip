@@ -41,6 +41,11 @@ jobs:
           chmod +x bin/ziptastic-*-linux-x86_64
           ./bin/ziptastic-*-linux-x86_64 version
 
+      - name: No pipeline into head under pipefail
+        # This trap cost three CI cycles in one day. It is a lint now, because writing
+        # it in docs/TRAPS.md did not stop it happening again.
+        run: bash tools/check-pipes.sh
+
       - name: Test
         run: ctest --test-dir build --output-on-failure
 

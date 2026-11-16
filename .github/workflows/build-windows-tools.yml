@@ -103,7 +103,7 @@ jobs:
           # find dies with SIGPIPE (141) and the step fails after doing its work.
           exe="$(find pfbuild -name 'preflate_demo.exe' -type f -print -quit)"
           test -n "$exe" || { echo "::error::no preflate_demo.exe"; exit 1; }
-          "$exe" | head -5 || true
+          "$exe" >/dev/null 2>&1 || true
           # A real raw deflate stream, made with zlib: `zlib.compress` emits a 2-byte
           # zlib header and a 4-byte adler32, and stripping those leaves the deflate
           # stream preflate expects. Stripping gzip's framing instead does not work —
@@ -171,7 +171,10 @@ jobs:
           ls -l
           sha256sum preflate-windows-x86_64.tar.gz > preflate-windows-x86_64.tar.gz.sha256
           # It must be readable as what it claims to be.
-          tar -tzf preflate-windows-x86_64.tar.gz | head -5
+          # No pipe into head: under `set -o pipefail` tar dies with SIGPIPE (141) and
+          # the step fails after the archive is already correct.
+          tar -tzf preflate-windows-x86_64.tar.gz > /tmp/listing.txt
+          echo "$(wc -l < /tmp/listing.txt) entries in the archive"
 
       - uses: actions/upload-artifact@v4
         with:
