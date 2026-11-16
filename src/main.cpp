@@ -170,6 +170,27 @@ bool same_bytes(const fs::path& a, const fs::path& b) {
   return true;
 }
 
+// An exit code above 128 is a death by signal on POSIX: 139 is SIGSEGV, 134 SIGABRT.
+// Reporting that as "failed" hides the difference between a tool that refused and a
+// tool that crashed — and srep does crash here (munmap_chunk: invalid pointer).
+std::string exit_meaning(int code) {
+  if (code > 128) {
+    const int signal = code - 128;
+    const char* name = "signal";
+    switch (signal) {
+      case 4: name = "SIGILL"; break;
+      case 6: name = "SIGABRT"; break;
+      case 8: name = "SIGFPE"; break;
+      case 9: name = "SIGKILL"; break;
+      case 11: name = "SIGSEGV"; break;
+      case 15: name = "SIGTERM"; break;
+      default: break;
+    }
+    return std::string("crashed with ") + name + " (" + std::to_string(signal) + ")";
+  }
+  return "exit " + std::to_string(code);
+}
+
 int do_compress(const fs::path& config_dir, const std::string& input, const std::string& profile_name,
                 const std::string& out, bool dry_run, bool verify) {
   const MasterConfig master = MasterConfig::load(config_dir / "syc.ini");
@@ -220,8 +241,8 @@ int do_compress(const fs::path& config_dir, const std::string& input, const std:
   write_manifest(plan, outcome);
 
   if (!outcome.ok) {
-    std::cerr << kName << ": step `" << outcome.failed_step << "` failed with exit "
-              << outcome.exit_code << "\n";
+    std::cerr << kName << ": step `" << outcome.failed_step << "` "
+              << exit_meaning(outcome.exit_code) << "\n";
     if (!outcome.detail.empty()) std::cerr << outcome.detail << "\n";
     std::cerr << "manifest written: " << plan.manifest.string() << " (it records the failure)\n";
     return 1;
@@ -417,7 +438,8 @@ int do_autotune(const fs::path& config_dir, const fs::path& input,
           if (c == '\n') c = ' ';
         }
         if (why.size() > 70) why = why.substr(0, 70) + "…";
-        result.note = "failed at " + outcome.failed_step + (why.empty() ? "" : ": " + why);
+        result.note = "failed at " + outcome.failed_step + " (" +
+                      exit_meaning(outcome.exit_code) + ")" + (why.empty() ? "" : ": " + why);
         results.push_back(result);
         continue;
       }

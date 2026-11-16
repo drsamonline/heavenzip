@@ -97,7 +97,18 @@ if "$BIN" compress "$WORK/input.txt" --config "$WORK/config" >/dev/null 2>"$WORK
   echo "FAIL: a failing step exited 0"
   exit 1
 fi
-grep -q 'step `first` failed with exit 3' "$WORK/err.txt" || { echo "FAIL: the failure did not name the step and exit"; cat "$WORK/err.txt"; exit 1; }
+# The message names the step and what the exit meant: a plain code, or a signal.
+grep -q 'step `first` exit 3' "$WORK/err.txt" || { echo "FAIL: the failure did not name the step and exit"; cat "$WORK/err.txt"; exit 1; }
+
+echo "-- a step killed by a signal must be reported as a crash, not an exit code"
+sed -i "s|bin = $WORK/bin/broken|bin = $WORK/bin/crashy|" "$WORK/config/profiles/two-step.ini"
+printf '#!/usr/bin/env bash\nkill -SEGV $$\n' > "$WORK/bin/crashy"
+chmod +x "$WORK/bin/crashy"
+if "$BIN" compress "$WORK/input.txt" --config "$WORK/config" >/dev/null 2>"$WORK/err2.txt"; then
+  echo "FAIL: a crashing step exited 0"
+  exit 1
+fi
+grep -q 'crashed with SIGSEGV' "$WORK/err2.txt" || { echo "FAIL: a signal death was not reported as a crash"; cat "$WORK/err2.txt"; exit 1; }
 grep -q '"ok": false' "$WORK/input.txt.hzpipeline" || { echo "FAIL: the manifest does not record the failure"; exit 1; }
 
 echo "-- a missing binary must refuse before touching the input"
