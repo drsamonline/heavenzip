@@ -102,17 +102,21 @@ jobs:
           Licence: Apache-2.0 — see \`LICENSE\`. The source is included as
           \`preflate-source.zip\`.
           EOF
-          cd pkg && tar -a -cf preflate-windows-x86_64.zip preflate-windows-x86_64
+          # .tar.gz, not .zip: the tar in Git Bash is GNU tar, whose -a does not know
+          # .zip, so `tar -a -cf x.zip` silently wrote a tar named .zip — an artefact
+          # that fails to open. Same container as the Linux bundle instead.
+          cd pkg && tar -czf preflate-windows-x86_64.tar.gz preflate-windows-x86_64
           ls -l
-          sha256sum preflate-windows-x86_64.zip > preflate-windows-x86_64.zip.sha256 || \
-            certutil -hashfile preflate-windows-x86_64.zip SHA256 > preflate-windows-x86_64.zip.sha256
+          sha256sum preflate-windows-x86_64.tar.gz > preflate-windows-x86_64.tar.gz.sha256
+          # It must be readable as what it claims to be.
+          tar -tzf preflate-windows-x86_64.tar.gz | head -5
 
       - uses: actions/upload-artifact@v4
         with:
           name: preflate-windows-x86_64
           path: |
-            pkg/preflate-windows-x86_64.zip
-            pkg/preflate-windows-x86_64.zip.sha256
+            pkg/preflate-windows-x86_64.tar.gz
+            pkg/preflate-windows-x86_64.tar.gz.sha256
 
   publish:
     needs: preflate
@@ -131,5 +135,5 @@ jobs:
           set -euo pipefail
           ls -l pkg
           gh release upload "${{ inputs.release_tag }}" \
-            pkg/preflate-windows-x86_64.zip pkg/preflate-windows-x86_64.zip.sha256 \
+            pkg/preflate-windows-x86_64.tar.gz pkg/preflate-windows-x86_64.tar.gz.sha256 \
             --repo "${{ github.repository }}" --clobber
