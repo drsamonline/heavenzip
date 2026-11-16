@@ -391,8 +391,12 @@ int do_autotune(const fs::path& config_dir, const fs::path& input,
   fs::path work = fs::temp_directory_path() / "heavenzip-autotune";
   if (const char* forced = std::getenv("HEAVENZIP_WORK"); forced != nullptr && *forced != '\0') {
     work = fs::path(forced);
-  } else if (input.has_parent_path()) {
-    work = input.parent_path() / ".heavenzip-autotune";
+  } else {
+    // `fs::path("s.txt").has_parent_path()` is false, so a bare filename fell
+    // through to /tmp — the exact case the fix was for. The directory is the
+    // input's parent, or the current directory when the name has none.
+    const fs::path parent = input.has_parent_path() ? input.parent_path() : fs::current_path();
+    work = parent / ".heavenzip-autotune";
   }
   fs::create_directories(work);
 
