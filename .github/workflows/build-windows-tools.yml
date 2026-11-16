@@ -57,13 +57,15 @@ jobs:
           # The CMake target is `preflate_demo` (main.cpp is the command-line front end;
           # main2.cpp is a second demo). Building just this one keeps the artefact small.
           cmake --build pfbuild --config Release --target preflate_demo
-          find pfbuild -name 'preflate_demo*' -type f | head -5
+          find pfbuild -name 'preflate_demo*' -type f
 
       - name: It must split and recombine the same bytes
         shell: bash
         run: |
           set -euo pipefail
-          exe="$(find pfbuild -name 'preflate_demo.exe' -type f | head -1)"
+          # -print -quit, not `| head -1`: under `set -o pipefail` head closes the pipe,
+          # find dies with SIGPIPE (141) and the step fails after doing its work.
+          exe="$(find pfbuild -name 'preflate_demo.exe' -type f -print -quit)"
           test -n "$exe" || { echo "::error::no preflate_demo.exe"; exit 1; }
           "$exe" | head -5 || true
           # A real raw deflate stream, made with zlib: `zlib.compress` emits a 2-byte
@@ -104,7 +106,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          exe="$(find pfbuild -name 'preflate_demo.exe' -type f | head -1)"
+          # -print -quit, not `| head -1`: under `set -o pipefail` head closes the pipe,
+          # find dies with SIGPIPE (141) and the step fails after doing its work.
+          exe="$(find pfbuild -name 'preflate_demo.exe' -type f -print -quit)"
           mkdir -p pkg/preflate-windows-x86_64
           cp "$exe" pkg/preflate-windows-x86_64/preflate.exe
           cp hcs/old/preflate-master/README.md pkg/preflate-windows-x86_64/ 2>/dev/null || true
