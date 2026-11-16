@@ -120,6 +120,8 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
   plan.input = input;
   plan.output = output;
   plan.manifest = input.string() + ".hzpipeline";
+  // Sentinel for "the reverse writes to stdout, so there is no argument to replace".
+  constexpr std::size_t kNoReverseOutIndex = static_cast<std::size_t>(-1);
 
   // Step i reads what step i-1 wrote; the first reads the input, the last writes
   // the .hzpkg. The intermediates are named after the step so a partial run says
@@ -130,6 +132,7 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     StepCommand command;
     command.step = step.name;
     command.program = step.bin.empty() ? master.ziptastic_bin : step.bin;
+    command.stdout_to_output = step.stdout_to_output;
 
     // Spawn what resolves, not what was written: on POSIX a profile naming
     // `bin/srep.exe` runs `bin/srep`. The manifest records the configured name in
@@ -163,7 +166,9 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     }
     if (!placed) {
       command.argv.push_back(current.string());
-      command.argv.push_back(next.string());
+      // A tool that writes to stdout takes no output argument: the runner points its
+      // stdout at the file instead.
+      if (!step.stdout_to_output) command.argv.push_back(next.string());
     }
 
     // The reverse of a step: the same binary, its own reverse arguments when the
@@ -204,7 +209,12 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
       command.reverse.push_back(next.string());    // produced
       command.reverse.push_back(current.string()); // consumed
     }
-    command.reverse_out_index = command.reverse.size() - 1;
+    // Where the restore target sits, or "nowhere". The default used to be the last
+    // argument, which is right for `tool d IN OUT` and wrong for a tool that writes
+    // to stdout: `gzip -d -c {in}` has no output argument at all, and pointing the
+    // substitution at its last argument made decompression read the file it was
+    // meant to write.
+    command.reverse_out_index = kNoReverseOutIndex;
     for (std::size_t k = 1; k < command.reverse.size(); ++k) {
       if (command.reverse[k] == current.string()) {
         command.reverse_out_index = k;

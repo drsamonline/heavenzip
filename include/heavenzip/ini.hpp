@@ -54,6 +54,10 @@ struct Step {
   std::string bin;          // empty means "use ziptastic_bin from [general]"
   std::string args;         // passed verbatim, split on whitespace
   std::string reverse_args; // optional; empty means the `<bin> d` convention
+  // Some tools write their result to standard output instead of naming an output
+  // file: `xz -9 -c IN`, `gzip -c IN`, `zstd -c IN`. Without this a profile could not
+  // describe them at all, because the step's stdout went to a log.
+  bool stdout_to_output = false;
 };
 
 struct Profile {

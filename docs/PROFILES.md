@@ -124,6 +124,26 @@ restores (the forward input). The manifest records `reverse_out_index`, the posi
 of the restored file inside the reverse argv, so decompression replaces the right
 argument instead of assuming it is last — which for `-o OUT IN` it is not.
 
+### Tools that write to stdout
+
+`gzip`, `xz`, `zstd` and `bzip2` have no output argument — they write to standard
+output and leave the redirect to the shell. A step could not express that, because
+its stdout went to a log file.
+
+`stdout_to_output = true` points the step's stdout at the file it is meant to produce:
+
+```ini
+[zstd]
+bin = /usr/bin/zstd
+args = -19 -c {in}
+reverse_args = -d -c {in}
+stdout_to_output = true
+```
+
+The reverse works the same way, and the manifest records the flag so decompression
+knows there is no output argument to substitute. Verified with the real `gzip -9 -c`
+and `zstd -19 -c`: both compress, verify, and restore byte for byte.
+
 ### The engine's real options, and the profile that needs nothing else
 
 The shipped profiles used to pass `-c lzma -9` and `-c brotli -q 11` to ziptastic.

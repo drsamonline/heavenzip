@@ -224,7 +224,14 @@ RunOutcome run_plan(const Plan& plan) {
     StepOutcome step;
     step.step = command.step;
 
-    const fs::path out_log = log_dir / (plan.output.filename().string() + "." + command.step + ".stdout");
+    // A tool that writes its result to stdout has that stream pointed at the file it
+    // is meant to produce. The log would otherwise swallow the payload.
+    const fs::path step_output = command.stdout_to_output
+        ? (i + 1 == plan.steps.size() ? plan.output : fs::path(plan.output.string() + "." + command.step + ".tmp"))
+        : fs::path();
+    const fs::path out_log = command.stdout_to_output
+        ? step_output
+        : log_dir / (plan.output.filename().string() + "." + command.step + ".stdout");
     const fs::path err_log = log_dir / (plan.output.filename().string() + "." + command.step + ".stderr");
 
     RunResult result;
@@ -283,7 +290,15 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome) {
     json << "    {\"step\": \"" << escape(command.step) << "\", "
          << "\"argv\": " << array_of(command.argv) << ", "
          << "\"reverse\": " << array_of(command.reverse) << ", "
-         << "\"reverse_out_index\": " << command.reverse_out_index << ", "
+         << "\"reverse_out_index\": "
+         // -1 means "the reverse writes to stdout, there is no argument to replace".
+         // Written as a negative rather than SIZE_MAX because JSON numbers are read
+         // as doubles here, and 2^64-1 does not survive that trip.
+         << (command.reverse_out_index == static_cast<std::size_t>(-1)
+                 ? -1
+                 : static_cast<long long>(command.reverse_out_index))
+         << ", "
+         << "\"stdout_to_output\": " << (command.stdout_to_output ? "true" : "false") << ", "
          << "\"exit_code\": " << (step ? step->exit_code : -1) << ", "
          << "\"seconds\": " << number(step ? step->seconds : 0.0) << "}";
     if (i + 1 < plan.steps.size()) json << ",";
@@ -317,9 +332,15 @@ std::vector<ReverseStep> read_reverse_plan(const fs::path& manifest) {
     }
     ReverseStep step;
     step.step = name != nullptr ? (*name)->text : "step";
+    const ValuePtr* to_stdout = entry->find("stdout_to_output");
+    if (to_stdout != nullptr && to_stdout->get()->kind == Value::Kind::Bool) {
+      step.stdout_to_output = to_stdout->get()->boolean;
+    }
     const ValuePtr* out_index = entry->find("reverse_out_index");
     if (out_index != nullptr && out_index->get()->kind == Value::Kind::Number) {
-      step.out_index = static_cast<std::size_t>(out_index->get()->number);
+      const double recorded = out_index->get()->number;
+      step.out_index = recorded < 0 ? static_cast<std::size_t>(-1)
+                                    : static_cast<std::size_t>(recorded);
     }
     // Prefer the recorded reverse command; fall back to the documented convention
     // only when an older manifest has no `reverse` field.
@@ -346,28 +367,32 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     ReverseStep command = steps[i];
     // The last reverse step would write back over the original file; send it to
     // `out` instead, so decompressing never destroys the input it came from.
-    if (i + 1 == steps.size() && !out.empty()) {
-      if (command.out_index < command.argv.size()) {
-        command.argv[command.out_index] = out.string();
-      } else {
-        command.argv.back() = out.string();
-      }
+    if (i + 1 == steps.size() && !out.empty() && command.out_index < command.argv.size()) {
+      command.argv[command.out_index] = out.string();
     }
     // Clear the file this step is about to produce. The forward run keeps its
     // intermediates, and ziptastic refuses to overwrite ("exists (use -f)"), so
     // reversing any pipeline longer than one step failed on its first step while
     // the bytes were perfectly recoverable. Decompression owns its output; the
     // forward direction does not, which is why only this side clears anything.
-    if (!command.argv.empty()) {
+    {
       std::error_code ec;
-      const std::size_t target = command.out_index < command.argv.size() ? command.out_index
-                                                                       : command.argv.size() - 1;
-      fs::remove(command.argv[target], ec);
+      if (command.out_index < command.argv.size()) {
+        fs::remove(command.argv[command.out_index], ec);
+      } else if (command.stdout_to_output && !out.empty()) {
+        // No output argument: the file to clear is the one stdout will be pointed at.
+        fs::remove(i + 1 == steps.size() ? out : fs::path(), ec);
+      }
     }
 
     StepOutcome step;
     step.step = command.step;
-    const fs::path out_log = manifest.parent_path() / (log_base.string() + "." + command.step + ".reverse.stdout");
+    const fs::path reverse_output = command.out_index < command.argv.size()
+        ? fs::path(command.argv[command.out_index])
+        : (i + 1 == steps.size() ? out : fs::path());
+    const fs::path out_log = command.stdout_to_output
+        ? reverse_output
+        : manifest.parent_path() / (log_base.string() + "." + command.step + ".reverse.stdout");
     const fs::path err_log = manifest.parent_path() / (log_base.string() + "." + command.step + ".reverse.stderr");
     const RunResult result = run_capture(command.argv, out_log, err_log);
     step.exit_code = result.exit_code;
