@@ -117,6 +117,13 @@ Both zig invocations now pass `-target x86_64-linux-gnu.2.28`, which pins the gl
 floor *and* a baseline CPU. `paq8px` is built with gcc's `-march=nocona`, already a
 2004-era baseline, and `srep` is cross-compiled the same way as heavenzip.
 
+### brotli is bundled statically
+
+Built from the vault with `BUILD_SHARED_LIBS=OFF`. The default build links five of
+brotli's own shared objects, which a self-contained bundle cannot carry; statically it
+needs only libc and libm. Its CLI is `-o OUT IN`, which is why the `brotli` profile
+uses `{in}`/`{out}` placeholders rather than the appended-argument convention.
+
 ### The bundle's glibc floor is 2.35
 
 The bundle is assembled in an `ubuntu:22.04` container, and that is what sets the
