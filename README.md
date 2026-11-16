@@ -77,6 +77,11 @@ It reports three winners, because "best" is two questions. On a 120 KB file:
 a number to be handed. `--goal` picks which one `--write` saves; `--templates <dir>`
 writes `best-ratio.ini`, `best-speed.ini` and `best-balanced.ini` side by side.
 
+## Before you change anything
+
+`docs/TRAPS.md` — ten traps this repository has already sprung, including the ones
+that only appear in a release artefact and the ones that fail silently in CI.
+
 ## Build plan
 
 The plan has eight phases (`AGENT_PROMPT.md` §12 asks for this table to be kept

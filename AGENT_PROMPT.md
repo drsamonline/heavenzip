@@ -317,7 +317,15 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-## 11. What NOT To Do
+## 11. Read `docs/TRAPS.md` first
+
+Ten traps this repository has already sprung, each one costing real time at least
+once: an exit code of 0 that means nothing, a CI round trip that cannot see a
+CPU-class bug, `/tmp` filling up, the shell and packaging details that fail silently,
+the toolchain facts for paq8px/srep/preflate, and the licence facts that decide what
+may ship. None are guessable from the source.
+
+## 12. What NOT To Do
 
 - Do **not** pull HCS or ziptastic source into this repo. There is no `vendor/`.
 - Do **not** implement any compressor. All compression lives behind the binaries.
@@ -327,7 +335,7 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-## 12. How to Report Progress
+## 13. How to Report Progress
 
 After each phase:
 
