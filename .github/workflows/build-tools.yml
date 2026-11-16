@@ -114,7 +114,7 @@ jobs:
           set -euo pipefail
           PQ=/tmp/pqbuild/paq8px
           test -x "$PQ" || { echo "::error::no paq8px binary"; exit 1; }
-          "$PQ" 2>&1 | head -5 || true
+          "$PQ" >/dev/null 2>&1 || true
           head -c 200000 /dev/urandom | base64 > /tmp/in.txt
           "$PQ" -5 /tmp/in.txt /tmp/out.paq
           "$PQ" -d /tmp/out.paq /tmp/back.txt
