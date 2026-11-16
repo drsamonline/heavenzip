@@ -79,6 +79,25 @@ jobs:
           cmp stream.deflate s.deflate.x
           echo "preflate split/recombine ok: $(stat -c%s stream.deflate 2>/dev/null || stat -f%z stream.deflate) bytes"
 
+      - name: The adapter must give it one-file-in, one-file-out
+        # preflate splits into FILE.u and FILE.r and recombines them; a heavenzip step
+        # needs one file each way. tools/preflate-wrap.cmd carries the pair in a tar.
+        # Testing it here is the only place it can be tested: the binary is Windows-only.
+        shell: cmd
+        run: |
+          exe=""
+          for /f "delims=" %%F in ('dir /b /s pfbuild\preflate_demo.exe 2^>nul') do set "exe=%%F"
+          if "!exe!"=="" (echo ::error::no preflate_demo.exe & exit /b 1)
+          copy /y "!exe!" preflate.exe >nul
+          copy /y tools\preflate-wrap.cmd . >nul
+          preflate-wrap.cmd c stream.deflate wrapped.bin
+          if not exist wrapped.bin (echo ::error::the adapter produced nothing & exit /b 1)
+          preflate-wrap.cmd d wrapped.bin restored.deflate
+          if not exist restored.deflate (echo ::error::the adapter restored nothing & exit /b 1)
+          fc /b stream.deflate restored.deflate >nul || (echo ::error::the adapter round trip differs & exit /b 1)
+          echo adapter round trip ok
+          copy /y preflate-wrap.cmd pkg\preflate-windows-x86_64\ 2>nul
+
       - name: Package with its source and licence
         shell: bash
         run: |
