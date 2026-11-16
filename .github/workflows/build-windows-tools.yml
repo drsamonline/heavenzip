@@ -95,6 +95,23 @@ jobs:
           cmp input.txt restored.txt
           echo "windows round trip ok: $(stat -c%s input.txt) bytes"
 
+      - name: When the round trip fails, show what the step said
+        if: failure()
+        shell: bash
+        run: |
+          work="$GITHUB_WORKSPACE/rt"
+          echo "--- files ---"
+          ls -la "$work" 2>/dev/null || true
+          echo "--- manifest ---"
+          cat "$work/input.txt.hzpipeline" 2>/dev/null || true
+          echo "--- step stderr ---"
+          cat "$work"/*.ziptastic.stderr 2>/dev/null || true
+          echo "--- step stdout ---"
+          cat "$work"/*.ziptastic.stdout 2>/dev/null || true
+          echo "--- engine, run by hand ---"
+          cd "$work" 2>/dev/null || true
+          ./bin/ziptastic.exe -9 input.txt hand.hzpkg || echo "engine exit $?"
+
       - name: The CLI runs and reads its config
         shell: bash
         run: |
