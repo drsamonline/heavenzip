@@ -347,6 +347,12 @@ std::vector<Candidate> autotune_candidates() {
       {"paq8", "[route]\ndetect = any\npipeline = paq8px\n\n[paq8px]\nbin = bin/paq8px.exe\nargs = -5\nreverse_args = -d\n"},
       // A tool whose CLI is not `input output`. This is only expressible because
       // steps take `{in}`/`{out}` placeholders; before that it needed a wrapper.
+      // System tools, looked up on PATH. Same stdout shape as brotli, and they cost
+      // nothing to try when the machine already has them.
+      {"zstd", "[route]\ndetect = any\npipeline = zstd\n\n[zstd]\nbin = zstd\n"
+               "args = -19 -c {in}\nreverse_args = -d -c {in}\nstdout_to_output = true\n"},
+      {"xz", "[route]\ndetect = any\npipeline = xz\n\n[xz]\nbin = xz\n"
+             "args = -9 -c {in}\nreverse_args = -d -c {in}\nstdout_to_output = true\n"},
       {"brotli", "[route]\ndetect = any\npipeline = brotli\n\n[brotli]\nbin = bin/brotli.exe\n"
                  "args = -q 11 -o {out} {in}\nreverse_args = -d -o {out} {in}\n"},
       {"srep-brotli",
