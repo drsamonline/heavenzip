@@ -82,21 +82,21 @@ jobs:
       - name: The adapter must give it one-file-in, one-file-out
         # preflate splits into FILE.u and FILE.r and recombines them; a heavenzip step
         # needs one file each way. tools/preflate-wrap.cmd carries the pair in a tar.
-        # Testing it here is the only place it can be tested: the binary is Windows-only.
+        # This is the only place the adapter can be tested: the binary is Windows-only.
+        #
+        # The path to the executable is written out rather than searched for: the first
+        # version looped with `!exe!` and never enabled delayed expansion, so the
+        # variable never expanded and the step failed on its own guard.
         shell: cmd
         run: |
-          exe=""
-          for /f "delims=" %%F in ('dir /b /s pfbuild\preflate_demo.exe 2^>nul') do set "exe=%%F"
-          if "!exe!"=="" (echo ::error::no preflate_demo.exe & exit /b 1)
-          copy /y "!exe!" preflate.exe >nul
-          copy /y tools\preflate-wrap.cmd . >nul
-          preflate-wrap.cmd c stream.deflate wrapped.bin
+          copy /y pfbuild\Release\preflate_demo.exe preflate.exe >nul || (echo ::error::no preflate_demo.exe & exit /b 1)
+          copy /y tools\preflate-wrap.cmd . >nul || (echo ::error::no wrapper & exit /b 1)
+          call preflate-wrap.cmd c stream.deflate wrapped.bin || (echo ::error::the adapter could not compress & exit /b 1)
           if not exist wrapped.bin (echo ::error::the adapter produced nothing & exit /b 1)
-          preflate-wrap.cmd d wrapped.bin restored.deflate
+          call preflate-wrap.cmd d wrapped.bin restored.deflate || (echo ::error::the adapter could not restore & exit /b 1)
           if not exist restored.deflate (echo ::error::the adapter restored nothing & exit /b 1)
           fc /b stream.deflate restored.deflate >nul || (echo ::error::the adapter round trip differs & exit /b 1)
           echo adapter round trip ok
-          copy /y preflate-wrap.cmd pkg\preflate-windows-x86_64\ 2>nul
 
       - name: Package with its source and licence
         shell: bash
@@ -106,6 +106,7 @@ jobs:
           mkdir -p pkg/preflate-windows-x86_64
           cp "$exe" pkg/preflate-windows-x86_64/preflate.exe
           cp hcs/old/preflate-master/README.md pkg/preflate-windows-x86_64/ 2>/dev/null || true
+          cp tools/preflate-wrap.cmd pkg/preflate-windows-x86_64/ 2>/dev/null || true
           cp hcs/LICENSES/APACHE-2.0.txt pkg/preflate-windows-x86_64/LICENSE 2>/dev/null || true
           git -C hcs/old/preflate-master archive --format=zip -o "$PWD/pkg/preflate-windows-x86_64/preflate-source.zip" HEAD
           cat > pkg/preflate-windows-x86_64/PROVENANCE.md <<EOF
