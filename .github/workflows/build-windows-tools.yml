@@ -83,6 +83,11 @@ jobs:
           rm -rf "$work" && mkdir -p "$work"
           cp "$exe" "$work/heavenzip.exe"
           cp -r config "$work/config"
+          # The profile names `bin/ziptastic.exe`, resolved relative to where heavenzip
+          # runs — so the engine has to be in the work directory, not at the workspace
+          # root where it was built.
+          mkdir -p "$work/bin"
+          cp "$GITHUB_WORKSPACE/bin/ziptastic.exe" "$work/bin/ziptastic.exe"
           cd "$work"
           head -c 40000 /dev/urandom | base64 > input.txt
           ./heavenzip.exe compress input.txt --profile plain
