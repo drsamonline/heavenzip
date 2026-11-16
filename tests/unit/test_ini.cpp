@@ -53,7 +53,7 @@ fs::path config_dir;
 
 void test_master_config_parses() {
   const MasterConfig master = MasterConfig::load(config_dir / "syc.ini");
-  CHECK(master.version == "0.1.0");
+  CHECK(master.version == "1.0.0");
   CHECK(master.log_level == "info");
   CHECK(!master.ziptastic_bin.empty());
   CHECK(master.default_profile == "plain");
