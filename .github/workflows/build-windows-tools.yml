@@ -29,6 +29,8 @@ jobs:
   preflate:
     runs-on: windows-latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: The vault's preflate source
         shell: bash
         run: |
