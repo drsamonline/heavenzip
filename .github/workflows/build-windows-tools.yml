@@ -64,11 +64,13 @@ jobs:
           exe="$(find pfbuild -name 'preflate_demo.exe' -type f | head -1)"
           test -n "$exe" || { echo "::error::no preflate_demo.exe"; exit 1; }
           "$exe" | head -5 || true
-          # A real deflate stream: gzip one, then strip its 18-byte header/trailer so
-          # preflate sees the raw deflate stream it is designed for.
+          # A real raw deflate stream, made with zlib: `zlib.compress` emits a 2-byte
+          # zlib header and a 4-byte adler32, and stripping those leaves the deflate
+          # stream preflate expects. Stripping gzip's framing instead does not work —
+          # its header is variable length, and preflate rejects what is left
+          # ("splitting s.deflate failed").
           head -c 120000 /dev/urandom | base64 > in.txt
-          gzip -c in.txt > in.gz
-          python -c "d=open('in.gz','rb').read(); open('stream.deflate','wb').write(d[10:-8])"
+          python -c "import zlib; d=open('in.txt','rb').read(); open('stream.deflate','wb').write(zlib.compress(d)[2:-4])"
           cp stream.deflate s.deflate
           "$exe" -s s.deflate
           test -f s.deflate.u || { echo "::error::split produced no .u"; exit 1; }
