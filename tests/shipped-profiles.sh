@@ -15,6 +15,13 @@
 #   tests/shipped-profiles.sh <fixtures-dir> [repo-root]
 set -euo pipefail
 
+# These fixtures build POSIX shell scripts as stand-in tools and compare
+# files with cmp, so they only run where a POSIX shell does. Windows runs
+# the C++ unit tests; the shell fixtures say why they are not there.
+case "${OS:-}" in
+  Windows_NT) echo "skip: POSIX shell fixture (Windows)"; exit 0 ;;
+esac
+
 FIXTURES="${1:?usage: shipped-profiles.sh <fixtures-dir> [repo-root]}"
 ROOT="${2:-$(cd "$(dirname "$0")/.." && pwd)}"
 

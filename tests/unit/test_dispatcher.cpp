@@ -127,7 +127,11 @@ void test_reverse_args_override_the_default_verb() {
 }
 
 void test_program_availability_is_checked() {
+#ifdef _WIN32
+  CHECK(program_available("C:\\Windows\\System32\\cmd.exe"));
+#else
   CHECK(program_available("/bin/sh"));
+#endif
   CHECK(!program_available("/nonexistent/binary"));
   CHECK(!program_available("a-binary-that-does-not-exist-anywhere"));
 }
@@ -176,8 +180,14 @@ void test_a_plan_spawns_the_resolved_path() {
                      "inline");
   const Plan plan = build_plan(master(), custom, "custom", g_fixtures / "notes.txt",
                                g_fixtures / "r.hzpkg");
-  // argv[0] is what will be spawned; `program` stays as configured.
+  // argv[0] is what will be spawned; `program` stays as configured. The direction of
+  // the suffix resolution is platform-dependent: `engine.exe` becomes `engine` on
+  // POSIX, and a bare name becomes `engine.exe` on Windows.
+#ifdef _WIN32
+  CHECK(plan.steps[0].argv[0] == (dir / "engine.exe").string());
+#else
   CHECK(plan.steps[0].argv[0] == bare.string());
+#endif
   CHECK(plan.steps[0].program == (dir / "engine.exe").string());
 
   fs::remove_all(dir);
