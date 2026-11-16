@@ -1,0 +1,130 @@
+name: build-windows-tools
+
+# preflate cannot be built on Linux: `support/filestream.cpp` calls `_ftelli64` and
+# `_fseeki64` unconditionally — MSVC-only names with no `#ifdef`. That is not a reason
+# to have no preflate; it is a reason to build it where it compiles.
+#
+# This builds it on windows-latest with MSVC, proves it splits and recombines a file
+# byte-exactly, and attaches the result with its source and licence (Apache-2.0 §4).
+#
+# It is a separate workflow from build-tools on purpose: that one builds the Linux
+# bundle, and a Windows artefact has no business in it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to attach the zip to (leave empty to only build)'
+        required: false
+        default: ''
+      hcs_ref:
+        description: 'HCS ref to build preflate from'
+        required: false
+        default: 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  preflate:
+    runs-on: windows-latest
+    steps:
+      - name: The vault's preflate source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch "${{ inputs.hcs_ref }}" https://github.com/drsamonline/HCS.git hcs
+          cd hcs
+          git submodule update --init --depth 1 old/preflate-master
+          test -f old/preflate-master/CMakeLists.txt || { echo "::error::preflate did not materialise"; exit 1; }
+          echo "preflate at $(git -C old/preflate-master rev-parse HEAD)"
+
+      - name: Configure with MSVC
+        shell: bash
+        run: |
+          set -euo pipefail
+          cmake -S hcs/old/preflate-master -B pfbuild -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build the CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The CMake target is `preflate_demo` (main.cpp is the command-line front end;
+          # main2.cpp is a second demo). Building just this one keeps the artefact small.
+          cmake --build pfbuild --config Release --target preflate_demo
+          find pfbuild -name 'preflate_demo*' -type f | head -5
+
+      - name: It must split and recombine the same bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe="$(find pfbuild -name 'preflate_demo.exe' -type f | head -1)"
+          test -n "$exe" || { echo "::error::no preflate_demo.exe"; exit 1; }
+          "$exe" | head -5 || true
+          # A real deflate stream: gzip one, then strip its 18-byte header/trailer so
+          # preflate sees the raw deflate stream it is designed for.
+          head -c 120000 /dev/urandom | base64 > in.txt
+          gzip -c in.txt > in.gz
+          python -c "d=open('in.gz','rb').read(); open('stream.deflate','wb').write(d[10:-8])"
+          cp stream.deflate s.deflate
+          "$exe" -s s.deflate
+          test -f s.deflate.u || { echo "::error::split produced no .u"; exit 1; }
+          test -f s.deflate.r || { echo "::error::split produced no .r"; exit 1; }
+          "$exe" -x s.deflate
+          cmp stream.deflate s.deflate.x
+          echo "preflate split/recombine ok: $(stat -c%s stream.deflate 2>/dev/null || stat -f%z stream.deflate) bytes"
+
+      - name: Package with its source and licence
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe="$(find pfbuild -name 'preflate_demo.exe' -type f | head -1)"
+          mkdir -p pkg/preflate-windows-x86_64
+          cp "$exe" pkg/preflate-windows-x86_64/preflate.exe
+          cp hcs/old/preflate-master/README.md pkg/preflate-windows-x86_64/ 2>/dev/null || true
+          cp hcs/LICENSES/APACHE-2.0.txt pkg/preflate-windows-x86_64/LICENSE 2>/dev/null || true
+          git -C hcs/old/preflate-master archive --format=zip -o "$PWD/pkg/preflate-windows-x86_64/preflate-source.zip" HEAD
+          cat > pkg/preflate-windows-x86_64/PROVENANCE.md <<EOF
+          # preflate
+
+          Built from HCS \`old/preflate-master\` at \`$(git -C hcs/old/preflate-master rev-parse HEAD)\`
+          (HCS \`${{ inputs.hcs_ref }}\`), with MSVC and the upstream CMakeLists unchanged.
+
+          **Windows only.** The source calls \`_ftelli64\` and \`_fseeki64\` unconditionally,
+          so it does not compile on Linux or macOS. That is why this artefact exists
+          separately from the Linux bundle.
+
+          Licence: Apache-2.0 — see \`LICENSE\`. The source is included as
+          \`preflate-source.zip\`.
+          EOF
+          cd pkg && tar -a -cf preflate-windows-x86_64.zip preflate-windows-x86_64
+          ls -l
+          sha256sum preflate-windows-x86_64.zip > preflate-windows-x86_64.zip.sha256 || \
+            certutil -hashfile preflate-windows-x86_64.zip SHA256 > preflate-windows-x86_64.zip.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preflate-windows-x86_64
+          path: |
+            pkg/preflate-windows-x86_64.zip
+            pkg/preflate-windows-x86_64.zip.sha256
+
+  publish:
+    needs: preflate
+    if: inputs.release_tag != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: preflate-windows-x86_64
+          path: pkg
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ls -l pkg
+          gh release upload "${{ inputs.release_tag }}" \
+            pkg/preflate-windows-x86_64.zip pkg/preflate-windows-x86_64.zip.sha256 \
+            --repo "${{ github.repository }}" --clobber
