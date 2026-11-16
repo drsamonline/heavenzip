@@ -1,0 +1,51 @@
+#!/bin/sh
+# zpaq-wrap — adapt zpaq's archive CLI to the one-file-in, one-file-out shape a
+# heavenzip step needs.
+#
+#   zpaq-wrap c IN OUT     archive IN into OUT
+#   zpaq-wrap d IN OUT     restore OUT from the archive IN
+#
+# zpaq is an archiver, not a stream compressor: `zpaq a ARCHIVE FILES` and
+# `zpaq x ARCHIVE -to DIR`. It stores a file under the name it was given and extracts
+# into a directory, so the payload is staged as `payload` in a temporary directory.
+# That keeps the stored name constant, which is what makes the restore predictable.
+#
+# ZPAQ_BIN overrides the zpaq binary; by default it is the one beside this script.
+set -eu
+
+# Everything must be absolute before the first cd: a relative OUT would be created
+# inside the staging directory and deleted with it, and a relative path to zpaq breaks
+# the moment the working directory changes.
+abspath() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *)  printf '%s/%s\n' "$(pwd)" "$1" ;;
+  esac
+}
+
+mode="${1:?usage: zpaq-wrap (c|d) IN OUT}"
+in="${2:?usage: zpaq-wrap (c|d) IN OUT}"
+out="${3:?usage: zpaq-wrap (c|d) IN OUT}"
+
+ZPAQ="$(abspath "${ZPAQ_BIN:-$(dirname "$0")/zpaq}")"
+in="$(abspath "$in")"
+out="$(abspath "$out")"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT INT TERM
+
+case "$mode" in
+  c)
+    cp "$in" "$work/payload"
+    ( cd "$work" && "$ZPAQ" a "$out" payload -m5 >/dev/null )
+    ;;
+  d)
+    ( cd "$work" && "$ZPAQ" x "$in" -to "$work" -force >/dev/null )
+    [ -f "$work/payload" ] || { echo "zpaq-wrap: nothing extracted" >&2; exit 1; }
+    mv "$work/payload" "$out"
+    ;;
+  *)
+    echo "zpaq-wrap: unknown mode '$mode' (use c or d)" >&2
+    exit 2
+    ;;
+esac
