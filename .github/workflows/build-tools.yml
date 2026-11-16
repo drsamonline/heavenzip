@@ -265,7 +265,7 @@ jobs:
           # The asset carries the version the binary reports, read from the same
           # CMakeLists that compiles it. Without this the release had an unversioned
           # bundle beside an older one whose name looked authoritative.
-          VERSION="$(sed -n 's/^  VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -1)"
+          VERSION="$(sed -n 's/^  VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | sed -n '1p')"
           test -n "$VERSION" || { echo "::error::no VERSION line in CMakeLists.txt"; exit 1; }
           echo "packaging heavenzip $VERSION"
           test "$(stage/heavenzip/heavenzip version | sed 's/.* //')" = "$VERSION" || {
