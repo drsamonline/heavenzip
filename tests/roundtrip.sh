@@ -111,6 +111,49 @@ fi
 grep -q 'crashed with SIGSEGV' "$WORK/err2.txt" || { echo "FAIL: a signal death was not reported as a crash"; cat "$WORK/err2.txt"; exit 1; }
 grep -q '"ok": false' "$WORK/input.txt.hzpipeline" || { echo "FAIL: the manifest does not record the failure"; exit 1; }
 
+echo "-- a tool that writes its result to stdout"
+# gzip/xz/zstd have no output argument: `gzip -9 -c IN` writes to stdout. The step
+# says so with stdout_to_output, and the runner points stdout at the payload.
+cat > "$WORK/bin/tostdout" <<'SH'
+#!/usr/bin/env bash
+# stand-in: `-c IN` writes a marker-wrapped copy to stdout, `-d -c IN` undoes it
+mode="$1"; shift
+[ "${1:-}" = "-c" ] && shift   # skip the stdout flag; the file is what follows
+file="$1"
+# A two-byte prefix, not a line transform: sed would add a trailing newline and
+# change the bytes, which is exactly what the round trip is here to catch.
+if [ "$mode" = "-d" ]; then
+  tail -c +3 "$file"
+else
+  printf 'HZ'
+  cat "$file"
+fi
+SH
+chmod +x "$WORK/bin/tostdout"
+cat > "$WORK/config/profiles/stdout.ini" <<INI
+[route]
+detect = any
+pipeline = tostdout
+
+[tostdout]
+bin = $WORK/bin/tostdout
+args = -c {in}
+reverse_args = -d -c {in}
+stdout_to_output = true
+INI
+sed -i 's/^available = .*/available = stdout/' "$WORK/config/syc.ini"
+sed -i 's/^default = .*/default = stdout/' "$WORK/config/syc.ini"
+"$BIN" compress "$WORK/input.txt" --config "$WORK/config" --profile stdout >/dev/null || {
+  echo "FAIL: a stdout-writing step could not compress"; exit 1; }
+"$BIN" decompress "$WORK/input.txt.hzpkg" --config "$WORK/config" --out "$WORK/stdout-back.txt" >/dev/null || {
+  echo "FAIL: a stdout-writing step could not decompress"; exit 1; }
+cmp -s "$WORK/input.txt" "$WORK/stdout-back.txt" || {
+  echo "FAIL: the stdout round trip did not restore the input"; exit 1; }
+
+# Put the master config back the way the rest of this script expects it.
+sed -i 's/^available = .*/available = two-step/' "$WORK/config/syc.ini"
+sed -i 's/^default = .*/default = two-step/' "$WORK/config/syc.ini"
+
 echo "-- a missing binary must refuse before touching the input"
 cat > "$WORK/config/profiles/two-step.ini" <<INI
 [route]

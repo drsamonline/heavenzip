@@ -48,6 +48,7 @@ struct ReverseStep {
   // Where the restored file is named inside `argv`. Recorded per step because a
   // brotli-shaped tool puts it in the middle (`-o OUT IN`), not last.
   std::size_t out_index = 0;
+  bool stdout_to_output = false;   // the reverse writes its result to stdout
 };
 std::vector<ReverseStep> read_reverse_plan(const std::filesystem::path& manifest);
 

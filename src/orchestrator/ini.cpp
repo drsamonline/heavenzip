@@ -256,10 +256,14 @@ Profile Profile::parse(const std::string& text, const std::string& name_for_erro
     if (const std::string* args = section->find("args"); args != nullptr) step.args = *args;
     if (const std::string* reverse = section->find("reverse_args"); reverse != nullptr)
       step.reverse_args = *reverse;
+    if (const std::string* to_stdout = section->find("stdout_to_output"); to_stdout != nullptr) {
+      const std::string value = *to_stdout;
+      step.stdout_to_output = (value == "true" || value == "yes" || value == "1");
+    }
     for (const auto& [key, value] : section->entries) {
-      if (key != "bin" && key != "args" && key != "reverse_args") {
+      if (key != "bin" && key != "args" && key != "reverse_args" && key != "stdout_to_output") {
         fail(where, "[" + name + "] has unknown key `" + key +
-                        "` (bin, args and reverse_args are the only ones)");
+                        "` (bin, args, reverse_args and stdout_to_output are the only ones)");
       }
     }
     profile.steps.push_back(std::move(step));
