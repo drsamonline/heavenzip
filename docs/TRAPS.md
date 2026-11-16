@@ -110,7 +110,19 @@ Three separate bugs lived only in the reverse path, each invisible while compres
 Any change to `build_plan` or `run_reverse` needs a two-step round trip through the
 CLI, not just a compress.
 
-## 10. Three places that already know the answer
+## 10. The sandbox forgets its toolchain
+
+`cmake` and `ziglang` are pip-installed, and a restart takes them away. The symptom is
+`No module named ziglang` in the middle of a ninja build, or `cmake: No such file or
+directory` right after it worked — which reads like a broken tree and is not.
+
+Reinstall before assuming anything:
+
+    python3 -m pip install --user cmake ninja ziglang
+
+Then rebuild. The build directory itself survives; only the tools vanish.
+
+## 11. Three places that already know the answer
 
 Before measuring or rebuilding anything, check these — in this order. Each has cost
 someone a day already.
@@ -130,7 +142,7 @@ green its CI was. Read the entries for the repos you are about to touch.
 twice made finished work look broken here. Decide whether something worked with
 `GET /repos/{owner}/{repo}/contents/{path}`, not with raw.
 
-## 11. Do not debug in CI
+## 12. Do not debug in CI
 
 Sleeping five minutes per iteration to read a remote log turned a morning of one-line
 fixes into hours of waiting. Reproduce locally, fix, prove it locally, and use CI as a
