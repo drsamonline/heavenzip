@@ -26,6 +26,42 @@ permissions:
   contents: write
 
 jobs:
+  heavenzip:
+    # Does the orchestrator build on Windows at all? Nothing has ever asked. The
+    # process layer has a _WIN32 branch (std::system with quoted arguments) that no CI
+    # has compiled, and the media profile only makes sense there.
+    #
+    # No round trip is attempted: there is no Windows ziptastic binary to drive, so a
+    # pipeline test here would fail for a reason that is not heavenzip's fault. This
+    # proves it compiles and its own tests pass.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure with MSVC
+        shell: bash
+        run: cmake -S . -B build -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config Release
+
+      - name: Its own tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          ctest --test-dir build -C Release --output-on-failure || {
+            echo "::error::heavenzip's tests fail on Windows"; exit 1; }
+
+      - name: The CLI runs and reads its config
+        shell: bash
+        run: |
+          set -euo pipefail
+          exe="$(find build -name 'heavenzip.exe' -type f -print -quit)"
+          test -n "$exe" || { echo "::error::no heavenzip.exe"; exit 1; }
+          "$exe" version
+          "$exe" validate | tail -3
+
   preflate:
     runs-on: windows-latest
     steps:
