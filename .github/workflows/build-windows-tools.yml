@@ -95,6 +95,41 @@ jobs:
           cmp input.txt restored.txt
           echo "windows round trip ok: $(stat -c%s input.txt) bytes"
 
+      - name: Package the Windows bundle
+        # The round trip above proves the two halves work together; this puts them in
+        # one archive so a Windows user gets an orchestrator rather than a parts list.
+        # The config, the docs and the notices travel with it: a bundle without its
+        # config cannot run, and one without NOTICE is not distributable.
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^  VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | sed -n '1p')"
+          test -n "$version" || { echo "::error::no VERSION in CMakeLists.txt"; exit 1; }
+          name="heavenzip-${version}-windows-x86_64"
+          rm -rf "pkg/$name" && mkdir -p "pkg/$name/bin"
+          exe="$(find build -name 'heavenzip.exe' -type f -print -quit)"
+          cp "$exe" "pkg/$name/heavenzip.exe"
+          cp "$GITHUB_WORKSPACE/bin/ziptastic.exe" "pkg/$name/bin/ziptastic.exe"
+          cp -r config "pkg/$name/config"
+          cp -r docs "pkg/$name/docs"
+          cp NOTICE README.md LICENSE CHANGELOG.md "pkg/$name/" 2>/dev/null || true
+          # It must report the version CMakeLists states, or the name is a lie.
+          reported="$("pkg/$name/heavenzip.exe" version | sed 's/.* //')"
+          test "$reported" = "$version" || {
+            echo "::error::the bundle's binary reports $reported, CMakeLists says $version"; exit 1; }
+          ( cd "pkg/$name" && sha256sum heavenzip.exe bin/ziptastic.exe > SHA256SUMS )
+          ( cd pkg && tar -czf "$name.tar.gz" "$name" )
+          ( cd pkg && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256" )
+          ( cd pkg && tar -tzf "$name.tar.gz" > listing.txt && echo "$(wc -l < listing.txt) entries" )
+          cat "pkg/$name.tar.gz.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: heavenzip-windows
+          path: |
+            pkg/heavenzip-*-windows-x86_64.tar.gz
+            pkg/heavenzip-*-windows-x86_64.tar.gz.sha256
+
       - name: When the round trip fails, show what the step said
         if: failure()
         shell: bash
@@ -252,6 +287,11 @@ jobs:
           name: preflate-windows-x86_64
           path: pkg
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: heavenzip-windows
+          path: pkg
+
       - name: Attach to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -260,4 +300,5 @@ jobs:
           ls -l pkg
           gh release upload "${{ inputs.release_tag }}" \
             pkg/preflate-windows-x86_64.tar.gz pkg/preflate-windows-x86_64.tar.gz.sha256 \
+            pkg/heavenzip-*-windows-x86_64.tar.gz pkg/heavenzip-*-windows-x86_64.tar.gz.sha256 \
             --repo "${{ github.repository }}" --clobber
