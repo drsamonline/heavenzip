@@ -14,15 +14,21 @@
 
 namespace heavenzip {
 
-enum class FileClass { Text, Media, Archive, Binary };
+// `Wav` and `Bmp` are separate classes rather than `Media` because the route they
+// want is not the media route: PCM sample data wants a delta filter and uncompressed
+// pixels want a colour-plane split, while the media route is for the DEFLATE stream
+// inside a PNG, JPEG or PDF. Both are decided by content — a WAV renamed `.dat` is
+// still a WAV — and both are narrower than their container: see detector.cpp for the
+// exact predicate (PCM/float sample formats; BI_RGB bitmaps).
+enum class FileClass { Text, Media, Wav, Bmp, Archive, Binary };
 
 // The name a profile would write in `detect =`, and the name printed by
 // `heavenzip detect`.
 std::string to_string(FileClass value);
 
-// Parse "text" / "media" / "archive" / "any". Returns false for anything else;
-// `any` is a profile-level rule rather than a class, and is reported as Binary
-// with matched=true by matches().
+// Parse "text" / "media" / "wav" / "bmp" / "archive" / "binary". Returns false for
+// anything else; `any` is a profile-level rule rather than a class, and is reported
+// as Binary with matched=true by matches().
 bool parse_class(const std::string& name, FileClass& out);
 
 struct Detection {

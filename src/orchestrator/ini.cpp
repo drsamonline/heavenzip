@@ -161,7 +161,11 @@ std::vector<std::string> split_args(const std::string& value) {
 
 namespace {
 
-const std::vector<std::string> kDetectValues = {"text", "media", "archive", "any"};
+// `binary` is here because PROFILES.md has always listed it as a value a profile may
+// write, and the parser rejected it: the documented rule and the enforced one had
+// drifted apart, which no test caught because no shipped profile names it.
+const std::vector<std::string> kDetectValues = {"text",  "media", "wav",    "bmp",
+                                               "archive", "binary", "any"};
 
 // "text, media , max-ratio" -> {"text","media","max-ratio"}, rejecting empties.
 std::vector<std::string> split_list(const std::string& value, const std::string& where,
@@ -232,7 +236,8 @@ Profile Profile::parse(const std::string& text, const std::string& name_for_erro
   Profile profile;
   profile.detect = lower(require(*route, "detect", where));
   if (std::find(kDetectValues.begin(), kDetectValues.end(), profile.detect) == kDetectValues.end()) {
-    fail(where, "`detect = " + profile.detect + "` is not one of text, media, archive, any");
+    fail(where, "`detect = " + profile.detect +
+                    "` is not one of text, media, wav, bmp, archive, binary, any");
   }
   profile.pipeline = split_list(require(*route, "pipeline", where), where, "pipeline");
 

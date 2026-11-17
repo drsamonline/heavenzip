@@ -63,6 +63,21 @@ void test_text() {
   expect("hindi.txt", FileClass::Text, "utf-8");
 }
 
+// WAV and BMP are their own classes: the route they want is a delta filter and a
+// colour-plane split, not the container recompression the media route is for.
+void test_wav_and_bmp() {
+  expect("tone.wav", FileClass::Wav, "wav magic");
+  expect("image.bmp", FileClass::Bmp, "bmp magic");
+}
+
+void test_wav_and_bmp_are_narrower_than_their_containers() {
+  // The class has to mean "a route exists for this", not "this is that container".
+  // A-law is a WAVE file and a 2-byte-stride delta filter is wrong for it; BI_RLE8
+  // is a bitmap and there are no planes to split. Both stay `binary`.
+  expect("alaw.wav", FileClass::Binary, "format 6");
+  expect("rle.bmp", FileClass::Binary, "BI_RGB");
+}
+
 void test_binary() {
   expect("random.bin", FileClass::Binary);
   expect("empty.bin", FileClass::Binary, "empty");
@@ -86,7 +101,8 @@ void test_zip_is_an_archive_not_media() {
 }
 
 void test_detect_any_matches_everything() {
-  for (FileClass value : {FileClass::Text, FileClass::Media, FileClass::Archive, FileClass::Binary}) {
+  for (FileClass value : {FileClass::Text, FileClass::Media, FileClass::Wav, FileClass::Bmp,
+                          FileClass::Archive, FileClass::Binary}) {
     CHECK(matches("any", value));
   }
 }
@@ -97,6 +113,14 @@ void test_specific_detect_matches_only_its_class() {
   CHECK(!matches("text", FileClass::Binary));
   CHECK(matches("archive", FileClass::Archive));
   CHECK(!matches("archive", FileClass::Text));
+  CHECK(matches("wav", FileClass::Wav));
+  CHECK(!matches("wav", FileClass::Bmp));
+  CHECK(!matches("wav", FileClass::Media));
+  CHECK(matches("bmp", FileClass::Bmp));
+  CHECK(!matches("bmp", FileClass::Wav));
+  // A profile may name `binary`, which PROFILES.md has always documented.
+  CHECK(matches("binary", FileClass::Binary));
+  CHECK(!matches("binary", FileClass::Text));
 }
 
 void test_unknown_detect_matches_nothing() {
@@ -148,6 +172,9 @@ int main(int argc, char** argv) {
 
   const std::vector<Case> cases = {
       {"media fixtures", test_media},
+      {"wav and bmp fixtures", test_wav_and_bmp},
+      {"wav and bmp are narrower than their containers",
+       test_wav_and_bmp_are_narrower_than_their_containers},
       {"archive fixtures", test_archives},
       {"text fixtures", test_text},
       {"binary fixtures", test_binary},
