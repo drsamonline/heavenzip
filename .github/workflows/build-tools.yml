@@ -234,8 +234,13 @@ jobs:
           /tmp/xz/xz -9 -c /tmp/x.txt > /tmp/x.xz
           /tmp/xz/xz -d -c /tmp/x.xz > /tmp/x.back
           cmp /tmp/x.txt /tmp/x.back
-          /tmp/pc/precomp -cn -o/tmp/x.pcf /tmp/x.txt >/dev/null 2>&1
-          /tmp/pc/precomp -r -o/tmp/x.p.back /tmp/x.pcf >/dev/null 2>&1
+          # precomp returns non-zero on a clean run — its exit code is a result code, not
+          # success/failure — so the check is the output, not the status. Under `set -e`
+          # the non-zero exit killed the step after the binary had linked correctly.
+          /tmp/pc/precomp -cn -o/tmp/x.pcf /tmp/x.txt >/dev/null 2>&1 || true
+          test -f /tmp/x.pcf || { echo "::error::precomp produced no archive"; exit 1; }
+          /tmp/pc/precomp -r -o/tmp/x.p.back /tmp/x.pcf >/dev/null 2>&1 || true
+          test -f /tmp/x.p.back || { echo "::error::precomp restored nothing"; exit 1; }
           cmp /tmp/x.txt /tmp/x.p.back
           echo "xz and precomp round-trip"
 
