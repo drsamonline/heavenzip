@@ -51,6 +51,33 @@ matching is enough.
   (PNGs, ZIPs, PDFs) is the next thing to measure, and it is where those chains are meant
   to win.
 
+## FreeArc's own baseline, and how to read it
+
+FreeArc 0.67 ships its benchmark results in `Addons/Benchmarking/`. Captured in
+`config/freearc/benchmark-baseline.txt`. The columns come from `maketest.rb`'s
+`reportResults`, and they are **not** what they look like:
+
+```
+ -m5p            7.277  0.419  1.192
+```
+
+is **ratio 7.277× (higher is better), 0.419 MB/s compressing, 1.192 MB/s decompressing**
+— not a time and not a size. Read as times it would say the opposite of the truth.
+
+| method | ratio | comp MB/s | decomp MB/s |
+|---|---|---|---|
+| `-m5` | 7.047 | 0.545 | 3.878 |
+| `-m5p` (precomp+srep) | **7.277** | 0.419 | 1.192 |
+| `-m6` | 7.052 | 0.538 | 3.654 |
+| `-mlpaq` | 7.503 | 0.101 | — |
+
+On that corpus the `p` chain buys **3.3%** over plain `-m5` and costs **30% more
+compression time and 3× the decompression time**. That is the honest shape of the
+trade, from the author's own numbers.
+
+**These are not reproducible here**: the corpora are Windows trees (`C:\Base\...`) this
+project does not have. They are a published baseline, not a measurement of heavenzip.
+
 ## Reproducing
 
 ```sh

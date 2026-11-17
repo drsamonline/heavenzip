@@ -1,0 +1,37 @@
+; FreeArc 0.67's own benchmark results, from the distribution's
+; Addons/Benchmarking/report.txt and average.txt.
+;
+; Columns, read from maketest.rb's reportResults():
+;     ratio    = original_bytes / compressed_bytes   (HIGHER is better)
+;     speed    = bytes / time / 1e6                  (MB/s, higher is better)
+;
+; The first block is one corpus; average.txt is the mean across all of them.
+; Corpora are Windows trees (C:\Base\...) that this project does not have, so these
+; numbers cannot be reproduced here — they are a published baseline, not our result.
+
+; C:\Base\Compiler\VC (1876 files, 41,823,667 bytes)
+; method            ratio   comp MB/s   decomp MB/s
+  -m1x              4.049      9.407       23.736
+  -m2x              5.225      5.891       21.525
+  -m3x              6.194      2.093       12.693
+  -m4x              6.837      0.710       13.013
+  -m5x              6.970      0.486       12.893
+  -m6x              6.970      0.485       13.094
+  -m2               5.542      4.885        8.701
+  -m3               6.412      1.811        4.515
+  -m4               6.902      0.793        4.257
+  -m5               7.047      0.545        3.878
+  -m6               7.052      0.538        3.654
+  -m5p              7.277      0.419        1.192
+  -m6p              7.315      0.397        1.071
+  -mccmx            7.159      0.338
+  -mlpaq            7.503      0.101
+
+; RAR 3.70 -md4096 -s, same corpus
+  -m1               4.230      4.564       22.450
+  -m2               5.473      1.463       25.929
+  -m3               5.841      1.077       25.627
+
+; The `p` variants are the precomp+srep chains: -m5p at 7.277 is 3.3% better than
+; -m5 at 7.047, and 7x slower to compress. That is the trade the chain makes, and it
+; is the one heavenzip's `fa-p` profile reproduces.
