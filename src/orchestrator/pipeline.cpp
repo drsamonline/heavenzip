@@ -255,7 +255,10 @@ RunOutcome run_plan(const Plan& plan) {
     step.stderr_log = err_log;
     outcome.steps.push_back(step);
 
-    if (result.exit_code != 0) {
+    // A step may declare which exit codes mean "did its job" (see Step::ok_exit).
+    // Anything else stops the chain, as before.
+    if (std::find(command.ok_exit.begin(), command.ok_exit.end(), result.exit_code) ==
+        command.ok_exit.end()) {
       outcome.ok = false;
       outcome.failed_step = command.step;
       outcome.exit_code = result.exit_code;
@@ -301,6 +304,12 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome) {
          << ", "
          << "\"stdout_to_output\": " << (command.stdout_to_output ? "true" : "false") << ", "
          << "\"produced\": \"" << escape(command.produced) << "\", "
+         << "\"ok_exit\": [";
+    for (std::size_t k = 0; k < command.ok_exit.size(); ++k) {
+      if (k) json << ", ";
+      json << command.ok_exit[k];
+    }
+    json << "], "
          << "\"exit_code\": " << (step ? step->exit_code : -1) << ", "
          << "\"seconds\": " << number(step ? step->seconds : 0.0) << "}";
     if (i + 1 < plan.steps.size()) json << ",";
@@ -351,6 +360,14 @@ std::vector<ReverseStep> read_reverse_plan(const fs::path& manifest) {
     const ValuePtr* out_prefix = entry->find("reverse_out_prefix");
     if (out_prefix != nullptr && out_prefix->get()->kind == Value::Kind::String) {
       step.out_prefix = out_prefix->get()->text;
+    }
+    const ValuePtr* ok_exit = entry->find("ok_exit");
+    if (ok_exit != nullptr && (*ok_exit)->kind == Value::Kind::Array) {
+      step.ok_exit.clear();
+      for (const ValuePtr& code : (*ok_exit)->items) {
+        if (code->kind == Value::Kind::Number) step.ok_exit.push_back(static_cast<int>(code->number));
+      }
+      if (step.ok_exit.empty()) step.ok_exit.push_back(0);
     }
     const ValuePtr* produced = entry->find("produced");
     if (produced != nullptr && produced->get()->kind == Value::Kind::String) {
@@ -442,7 +459,8 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     step.stdout_log = out_log;
     step.stderr_log = err_log;
     outcome.steps.push_back(step);
-    if (result.exit_code != 0) {
+    if (std::find(command.ok_exit.begin(), command.ok_exit.end(), result.exit_code) ==
+        command.ok_exit.end()) {
       outcome.ok = false;
       outcome.failed_step = command.step;
       outcome.exit_code = result.exit_code;

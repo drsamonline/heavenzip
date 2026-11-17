@@ -34,6 +34,9 @@ struct StepCommand {
   // reverse of such a step wrote its payload to the caller's terminal and left
   // nothing on disk for the next reverse step to read.
   std::string produced;
+  // Exit codes this step treats as success. Recorded in the manifest so the reverse
+  // pass applies the same rule in the other direction.
+  std::vector<int> ok_exit{0};
 
   // Shell-quoted for humans: `bin/ziptastic.exe -c lzma -9 "in put.txt"`.
   std::string shell_line() const;

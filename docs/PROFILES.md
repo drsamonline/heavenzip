@@ -24,7 +24,7 @@ command and nothing else.
 | Section | Keys | Rules |
 |---|---|---|
 | `[route]` | `detect`, `pipeline` | both required; `detect` is one of `text`, `media`, `wav`, `bmp`, `archive`, `binary`, `any`; `pipeline` is a comma-separated list of step names, in order |
-| one section per step | `bin`, `args`, `reverse_args`, `stdout_to_output`, `optional` | `bin` optional (defaults to `ziptastic_bin`); `args` passed verbatim; `reverse_args` optional, see below; `optional = true` lets the step be dropped when its tool is absent, see "Steps that are optional" |
+| one section per step | `bin`, `args`, `reverse_args`, `stdout_to_output`, `optional`, `ok_exit` | `bin` optional (defaults to `ziptastic_bin`); `args` passed verbatim; `reverse_args` optional, see below; `optional = true` lets the step be dropped when its tool is absent; `ok_exit` lists the exit codes that mean success (default `0`) |
 
 Anything else is an error, with the file and the line:
 
@@ -36,7 +36,8 @@ Anything else is an error, with the file and the line:
 | a step named in `pipeline` with no section | `pipeline names step 'x' but there is no [x] section` |
 | a section not named in `pipeline` | `[x] is not named in pipeline` |
 | the same step twice | `pipeline names step 'x' twice; a pipeline is linear and a repeated step is a cycle` |
-| an unknown key in a step | `[x] has unknown key 'y' (bin, args, reverse_args, stdout_to_output and optional are the only ones)` |
+| an unknown key in a step | `[x] has unknown key 'y' (bin, args, reverse_args, stdout_to_output, optional and ok_exit are the only ones)` |
+| `ok_exit = 0,x` | `[x] has \`ok_exit = 0,x\`, and \`x\` is not an exit code` |
 
 `;` and `#` start a comment. A `;` inside quotes is data, so
 `args = -x ";not a comment"` survives.
@@ -62,6 +63,27 @@ the audio route is a delta filter with a 2-byte stride and it makes companded au
 bigger, so those files are `binary`. An RLE or BITFIELDS bitmap has no colour planes to
 split, so it is `binary` too. Both classes are decided by content: a WAV renamed `.dat`
 is still `wav`.
+
+## Exit codes a step accepts
+
+A tool may report a non-fatal condition through its exit code. `precomp` exits 2 when it
+finds nothing to recompress — and writes a perfectly usable PCF while doing it. Treating
+that as failure stopped every chain that uses it on any input with no DEFLATE stream.
+
+```ini
+[precomp]
+bin = bin/precomp.exe
+args = -cn -o{out} {in}
+ok_exit = 0,2
+```
+
+`ok_exit` defaults to `0`, so a step that says nothing keeps the meaning it always had.
+The rule is per-step and recorded in the manifest, so the reverse pass applies the same
+codes in the other direction — the same tool reports the same conditions both ways.
+
+It is deliberately **not** a global "ignore exit 2": a tool that starts failing
+differently still fails loudly, and a step that declares only `0` still stops the chain
+on the same exit code.
 
 ## Steps that are optional
 

@@ -65,6 +65,16 @@ struct Step {
   // redistributable in any form", so a profile that chains it can never carry it and
   // `BUNDLING.md` already says such a step must fall back rather than fail.
   bool optional = false;
+  // Which exit codes mean "this step did its job". Default {0}. A tool that reports
+  // a non-fatal condition through its exit code says so here, once, in the file that
+  // names it — precomp exits 2 when it finds nothing to recompress, having written a
+  // perfectly usable PCF, and treating that as failure stopped every chain that uses
+  // it on any input with no DEFLATE stream (issue #93).
+  //
+  // It is deliberately not a global "ignore exit 2": a step that declares nothing
+  // keeps the meaning it always had, so a tool that starts failing differently still
+  // fails loudly.
+  std::vector<int> ok_exit{0};
 };
 
 struct Profile {

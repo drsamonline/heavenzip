@@ -265,15 +265,30 @@ Profile Profile::parse(const std::string& text, const std::string& name_for_erro
       const std::string value = *to_stdout;
       step.stdout_to_output = (value == "true" || value == "yes" || value == "1");
     }
+    if (const std::string* ok_exit = section->find("ok_exit"); ok_exit != nullptr) {
+      step.ok_exit.clear();
+      for (const std::string& token : split_list(*ok_exit, where, "ok_exit")) {
+        try {
+          std::size_t used = 0;
+          const int code = std::stoi(token, &used);
+          if (used != token.size()) throw std::invalid_argument(token);
+          step.ok_exit.push_back(code);
+        } catch (const std::exception&) {
+          fail(where, "[" + name + "] has `ok_exit = " + *ok_exit + "`, and `" + token +
+                          "` is not an exit code");
+        }
+      }
+      if (step.ok_exit.empty()) fail(where, "[" + name + "] has an empty `ok_exit`");
+    }
     if (const std::string* optional = section->find("optional"); optional != nullptr) {
       const std::string value = *optional;
       step.optional = (value == "true" || value == "yes" || value == "1");
     }
     for (const auto& [key, value] : section->entries) {
       if (key != "bin" && key != "args" && key != "reverse_args" &&
-          key != "stdout_to_output" && key != "optional") {
+          key != "stdout_to_output" && key != "optional" && key != "ok_exit") {
         fail(where, "[" + name + "] has unknown key `" + key +
-                        "` (bin, args, reverse_args, stdout_to_output and optional are the only ones)");
+                        "` (bin, args, reverse_args, stdout_to_output, optional and ok_exit are the only ones)");
       }
     }
     profile.steps.push_back(std::move(step));
