@@ -52,9 +52,31 @@ RAM and **fails with "Cannot allocate memory"** on a 2 GB machine. `dict=64MiB` 
 9's own default) is what this box can do; 128 MiB already fails. A template that cannot
 run where it is tested is not a template.
 
-**`lzp`, `ppmd`, `dict` (FreeArc's PPM front-ends), `grzip`, `tor`, `tta`.** None are in
-the vault and none are bundled. `paq8px` covers the same ground from a different
-direction — a context-mixing model rather than a PPM dictionary — and is already here.
+**`lzp`, `ppmd`, `dict`, `grzip`, `tor`, `delta` are NOT absent.** I said they were,
+twice, because I searched `old/` for directories named after the codecs. They are inside
+FreeArc's own tree, which is what `old/freearc-c-main/src/Compression/` is:
+
+```
+CLS  Delta  Dict  External  GRZip  LZMA  LZMA2  LZP  MM  PPMD  REP  Tornado  _Encryption
+```
+
+So FreeArc's whole codec set is in the vault, and `arc` builds from it — see below.
+Only `tta` (the audio codec) is genuinely missing, and it is the one that does not apply
+to a general-purpose archiver.
+
+**Building FreeArc itself.** `freearc-c-main` has a Makefile; this box has no make, so
+the object rules were read out of it the same way as for 7-Zip. Two obstacles, both
+mechanical:
+
+| Obstacle | Fix |
+|---|---|
+| `basename` collides with glibc's `noexcept` declaration | `-Dbasename=fa_basename` |
+| `C_MM.cpp` and the crypto layer need include paths | `-I. -ICompression -ICompression/_Encryption/headers` |
+
+`arc` (6.9 MB) and `unarc` (4.9 MB) both link, and a 22,235-byte PNG round-trips
+byte-exactly through them. Extraction needs `unarc` beside `arc` — `arc x` shells out to
+it, and without it the error is "failed to execute unarc", which reads like a missing
+feature rather than a missing binary.
 
 **`storing` as a first stage.** FreeArc's `0 = storing` is a real stage: store the file
 uncompressed so a later filter sees it whole. heavenzip's `plain` profile is the engine
