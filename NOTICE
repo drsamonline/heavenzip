@@ -25,23 +25,26 @@ never linked, and each keeps its own terms:
 |---|---|---|
 | `ziptastic` | MIT (same fleet) | the binary, verified against its release `SHA256SUMS` |
 | `paq8px` | **GPL-2.0-or-later** | the binary **and its source** (`sources/paq8px-source.tar.gz`) — GPL-2 §3 requires it |
-| `srep` | **no licence granted** | the binary **and its source** (`sources/srep-source.tar.gz`) plus the build recipe; see below |
+| `srep` | **the author's, not ours** — see below | the binary **and its source** (`sources/srep-source.tar.gz`) plus the build recipe; see below |
 | `brotli` | MIT | the binary, built statically from the vault so it needs only libc and libm |
 | `preflate` | Apache-2.0 | licence text only — it does not compile on POSIX, so no binary |
 
 ### `srep` has no licence, and this is what that means
 
-`srep` (SuperREP 3.93a, Bulat Ziganshin) ships in HCS as an unofficial repackage of
-the last known commit. **There is no licence file and no licence statement anywhere
-in that tree.** Absence of a licence is not permission: by default the author
-reserves all rights.
+`srep` (SuperREP 3.93a) is the private project of **Bulat Ziganshin**. The licence is
+his to grant, and **we do not hold it**: there is no licence file and no licence
+statement anywhere in that tree. Absence of a licence is not permission — by default
+the author reserves all rights — so nothing here grants you any right to `srep`,
+and nothing in this repository implies we were given one.
 
-So the bundle does not quietly redistribute it as though it were free. It carries
-the source, a `sources/srep-source.tar.gz` alongside it, and the exact build recipe
-in `docs/PACKAGING.md`, and this notice says plainly that no licence has been
-granted. If you are packaging heavenzip for other people, that is the decision to
-review before you publish — including the binary is a choice the publisher makes,
-not one this repository can make for them.
+It is included as an unofficial repackage of the last known commit, with its source
+(`sources/srep-source.tar.gz`) and the build recipe in `docs/PACKAGING.md`, so that
+what is shipped can be inspected and rebuilt rather than taken on trust. If the
+author asks for it to be removed, it will be removed.
+
+If you are packaging heavenzip for other people, that is the decision to review
+before you publish — including the binary is a choice the publisher makes, not one
+this repository can make for them.
 
 `srep` is optional. Every profile that names it refuses, naming the program, when
 it is absent; nothing else depends on it.
