@@ -351,7 +351,7 @@ std::vector<Candidate> autotune_candidates() {
       // nothing to try when the machine already has them.
       {"zstd", "[route]\ndetect = any\npipeline = zstd\n\n[zstd]\nbin = zstd\n"
                "args = -19 -c {in}\nreverse_args = -d -c {in}\nstdout_to_output = true\n"},
-      {"xz", "[route]\ndetect = any\npipeline = xz\n\n[xz]\nbin = xz\n"
+      {"xz", "[route]\ndetect = any\npipeline = xz\n\n[xz]\nbin = bin/xz.exe\n"
              "args = -9 -c {in}\nreverse_args = -d -c {in}\nstdout_to_output = true\n"},
       {"brotli", "[route]\ndetect = any\npipeline = brotli\n\n[brotli]\nbin = bin/brotli.exe\n"
                  "args = -q 11 -o {out} {in}\nreverse_args = -d -o {out} {in}\n"},
@@ -359,6 +359,20 @@ std::vector<Candidate> autotune_candidates() {
        "[route]\ndetect = any\npipeline = srep,brotli\n\n[srep]\nbin = bin/srep.exe\nargs = -m5f\n"
        "reverse_args = -d\n\n[brotli]\nbin = bin/brotli.exe\nargs = -q 11 -o {out} {in}\n"
        "reverse_args = -d -o {out} {in}\n"},
+      // The chains, not just the tools. Each stage sees what the previous one exposed,
+      // and the ordering is the claim being measured: precomp must run before the
+      // LZMA stage or the DEFLATE streams are compressed as opaque bytes and there is
+      // nothing left to unwrap.
+      {"precomp-srep-xz",
+       "[route]\ndetect = any\npipeline = precomp,srep,xz\n\n"
+       "[precomp]\nbin = bin/precomp.exe\nargs = -cn -o{out} {in}\nreverse_args = -r -o{out} {in}\n\n"
+       "[srep]\nbin = bin/srep.exe\nargs = -l256m -m3f\nreverse_args = -d\n\n"
+       "[xz]\nbin = bin/xz.exe\nargs = -9 -c {in}\nreverse_args = -d -c {in}\nstdout_to_output = true\n"},
+      {"precomp-srep-7z",
+       "[route]\ndetect = any\npipeline = precomp,srep,sevenzip\n\n"
+       "[precomp]\nbin = bin/precomp.exe\nargs = -cn -o{out} {in}\nreverse_args = -r -o{out} {in}\n\n"
+       "[srep]\nbin = bin/srep.exe\nargs = -l256m -m3f\nreverse_args = -d\n\n"
+       "[sevenzip]\nbin = bin/7z-wrap\nargs = c {in} {out}\nreverse_args = d {in} {out}\n"},
       {"srep-paq8",
        "[route]\ndetect = any\npipeline = srep,paq8px\n\n[srep]\nbin = bin/srep.exe\nargs = -l256m -m5f\nreverse_args = -d\n\n"
        "[paq8px]\nbin = bin/paq8px.exe\nargs = -8\nreverse_args = -d\n"},
