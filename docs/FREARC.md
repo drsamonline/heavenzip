@@ -64,6 +64,30 @@ So FreeArc's whole codec set is in the vault, and `arc` builds from it — see b
 Only `tta` (the audio codec) is genuinely missing, and it is the one that does not apply
 to a general-purpose archiver.
 
+## The table itself, and where each port looks for it
+
+The method table is now in the vault twice over, and the two copies are not equivalent:
+
+| Source | What it is | Usable? |
+|---|---|---|
+| `old/FA-master/0.20/CompressionMethod.lua` | the table in Lua, as documentation | reference only |
+| `old/freearc-067/app/Compression.hs` (`builtinMethodSubsts`) | the table **compiled into** the modernised 0.67 port | the copy a buildable archiver actually uses |
+
+`config/freearc/arc.ini` is that second copy, extracted verbatim: **105 method
+definitions**, including `#b = #rep+#bx`, `9rep = rep:2040m` and
+`9binary = lzma:254m:max`.
+
+**Naming and discovery differ per port, and this is where a file gets missed:**
+
+| Port | Reads | Which names | `-cfg`? |
+|---|---|---|---|
+| `freearc-c` (the one this bundle ships) | `arc.ini` beside the binary | **only** `arc.ini` | **no** |
+| `despawnerer/freearc` (Haskell, in the vault) | `arc*.ini` in the config places | `arc*.ini` glob | **yes** — any filename |
+
+So a file called `FA.ini` is invisible to both the glob and the C port's fixed name, and
+becomes readable only through `-cfg FA.ini` on the Haskell port. Searching a repository
+for `*.ini` will not find it either if the name is something else entirely.
+
 **The `[Compression methods]` table is not read by the C port.** `arc.ini` support in
 `freearc-c-main` is `ArcCommand.h`'s `RegisterExternalCompressors`, which scans only for
 `[External compressor:…]` sections and registers DLLs. It never parses
