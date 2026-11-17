@@ -124,6 +124,17 @@ brotli's own shared objects, which a self-contained bundle cannot carry; statica
 needs only libc and libm. Its CLI is `-o OUT IN`, which is why the `brotli` profile
 uses `{in}`/`{out}` placeholders rather than the appended-argument convention.
 
+### The media profile routes to the engine, not to a preflate binary
+
+`ziptastic` links preflate — its `docs/LICENCES.md` says so: "the DEFLATE recompression".
+Media files carry DEFLATE streams inside containers (PNG, JPEG, PDF, ZIP), and the
+engine recompresses them itself.
+
+The `media` profile once routed through a standalone `preflate` binary instead. That was
+wrong: `preflate -s` takes a *raw* deflate stream and fails on a PNG. The standalone
+binary still ships for Windows, because a raw stream is a legitimate thing to hand it,
+but no profile depends on it.
+
 ### The bundle's glibc floor is 2.35
 
 The bundle is assembled in an `ubuntu:22.04` container, and that is what sets the
