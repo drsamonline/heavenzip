@@ -64,6 +64,17 @@ So FreeArc's whole codec set is in the vault, and `arc` builds from it — see b
 Only `tta` (the audio codec) is genuinely missing, and it is the one that does not apply
 to a general-purpose archiver.
 
+**The `[Compression methods]` table is not read by the C port.** `arc.ini` support in
+`freearc-c-main` is `ArcCommand.h`'s `RegisterExternalCompressors`, which scans only for
+`[External compressor:…]` sections and registers DLLs. It never parses
+`[Compression methods]`, so `-m9` and `-mx` cannot resolve there however the file is
+written — measured: the section extracted verbatim from
+`FA/0.20/CompressionMethod.lua` and placed beside the binary still answers
+"data compression failed (-2) method 9".
+
+The table is therefore guidance for the chains heavenzip implements as profiles, not
+configuration this binary consumes. `-m4` and `-m5` map to LZMA directly and work.
+
 **Building FreeArc itself.** `freearc-c-main` has a Makefile; this box has no make, so
 the object rules were read out of it the same way as for 7-Zip. Two obstacles, both
 mechanical:
