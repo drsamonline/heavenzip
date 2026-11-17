@@ -73,6 +73,13 @@ jobs:
           # work to do without srep is `max-deflate`, and this asserts the drop is a
           # notice rather than a refusal.
           ./build/heavenzip compress tests/fixtures/image.png --profile max-deflate --dry-run
+          # precomp exits 2 when it finds nothing to recompress, and `ok_exit = 0,2` in
+          # the profile says so. A tiny PNG has no DEFLATE stream to find, which makes
+          # it the case that proves the rule end to end: the chain must complete and
+          # verify rather than stopping at the first step.
+          rm -f /tmp/okexit.png.hzpkg /tmp/okexit.png.hzpipeline
+          cp tests/fixtures/image.png /tmp/okexit.png
+          ./build/heavenzip compress /tmp/okexit.png --profile max-deflate
 
       - name: A profile that does not apply must refuse, not crash
         run: |

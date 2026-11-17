@@ -68,6 +68,27 @@ void test_text_profile_drops_the_unshippable_step() {
   }
 }
 
+void test_a_step_carries_its_accepted_exit_codes() {
+  // The manifest records these so the reverse pass applies the same rule backwards.
+  const Plan plan = build_plan(master(), profile("max-deflate"), "max-deflate",
+                               g_fixtures / "image.png", g_fixtures / "image.png.hzpkg");
+  bool saw_precomp = false;
+  for (const StepCommand& step : plan.steps) {
+    if (step.step != "precomp") continue;
+    saw_precomp = true;
+    CHECK(step.ok_exit.size() == 2);
+    CHECK(step.ok_exit[0] == 0);
+    CHECK(step.ok_exit[1] == 2);
+  }
+  CHECK(saw_precomp);
+  // And everything else keeps the default, so the rule stays per-step.
+  for (const StepCommand& step : plan.steps) {
+    if (step.step == "precomp") continue;
+    CHECK(step.ok_exit.size() == 1);
+    CHECK(step.ok_exit[0] == 0);
+  }
+}
+
 void test_a_step_records_what_it_produced() {
   const Plan plan = build_plan(master(), profile("text"), "text", g_fixtures / "notes.txt",
                                g_fixtures / "notes.txt.hzpkg");
@@ -273,6 +294,7 @@ int main(int argc, char** argv) {
   const std::vector<Case> cases = {
       {"text profile drops the unshippable step", test_text_profile_drops_the_unshippable_step},
       {"a step records what it produced", test_a_step_records_what_it_produced},
+      {"a step carries its accepted exit codes", test_a_step_carries_its_accepted_exit_codes},
       {"all-optional-and-missing refuses", test_a_profile_whose_every_step_is_optional_and_missing_refuses},
       {"media never matches text", test_a_media_profile_never_matches_a_text_file},
       {"any matches binary", test_any_matches_a_binary_file},

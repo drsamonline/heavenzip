@@ -171,6 +171,7 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     const bool last = (i + 1 == kept.size());
     const fs::path next = last ? output : fs::path(output.string() + "." + step.name + ".tmp");
     command.produced = next.string();
+    command.ok_exit = step.ok_exit;
 
     // A step's arguments may name `{in}` and `{out}` anywhere. Without them the
     // input and output are appended in that order, which is what ziptastic, srep

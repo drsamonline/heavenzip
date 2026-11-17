@@ -57,6 +57,9 @@ struct ReverseStep {
   // middle of a chain has no output argument, so this is the only way to know where
   // its payload belongs.
   std::string produced;
+  // The forward step's accepted exit codes, applied to the reverse too: the same tool
+  // reports the same non-fatal conditions in both directions.
+  std::vector<int> ok_exit{0};
 };
 std::vector<ReverseStep> read_reverse_plan(const std::filesystem::path& manifest);
 

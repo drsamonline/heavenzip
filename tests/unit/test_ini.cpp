@@ -191,6 +191,29 @@ void test_optional_step_key_is_parsed() {
   CHECK(!profile.steps[1].optional);
 }
 
+void test_ok_exit_is_parsed_and_validated() {
+  // A step may say which exit codes mean "did its job". precomp exits 2 when it finds
+  // nothing to recompress, having written a usable PCF; without this every chain that
+  // uses it failed on any input with no DEFLATE stream (issue #93).
+  const Profile ok = Profile::parse(
+      "[route]\ndetect = any\npipeline = one\n[one]\nargs = -9\nok_exit = 0,2\n", "inline");
+  CHECK(ok.steps.size() == 1);
+  CHECK(ok.steps[0].ok_exit.size() == 2);
+  CHECK(ok.steps[0].ok_exit[0] == 0);
+  CHECK(ok.steps[0].ok_exit[1] == 2);
+
+  // The default is the one meaning every step had before this key existed.
+  const Profile plain = Profile::parse(
+      "[route]\ndetect = any\npipeline = one\n[one]\nargs = -9\n", "inline");
+  CHECK(plain.steps[0].ok_exit.size() == 1);
+  CHECK(plain.steps[0].ok_exit[0] == 0);
+
+  // A typo must not silently become "0 only" or "everything".
+  EXPECT_ERROR(
+      [] { Profile::parse("[route]\ndetect = any\npipeline = one\n[one]\nargs = -9\nok_exit = 0,x\n", "inline"); },
+      "is not an exit code");
+}
+
 void test_unknown_key_in_step_is_an_error() {
   EXPECT_ERROR(
       [] {
@@ -264,6 +287,7 @@ int main(int argc, char** argv) {
       {"detect value checked", test_detect_value_is_checked},
       {"every nameable class is accepted", test_every_class_a_profile_may_name_is_accepted},
       {"optional step key is parsed", test_optional_step_key_is_parsed},
+      {"ok_exit is parsed and validated", test_ok_exit_is_parsed_and_validated},
       {"unknown step key", test_unknown_key_in_step_is_an_error},
       {"reverse_args parsed", test_reverse_args_are_parsed},
       {"repeated step is a cycle", test_a_repeated_step_is_a_cycle},
