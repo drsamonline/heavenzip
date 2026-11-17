@@ -338,5 +338,5 @@ jobs:
           ls -l pkg pkg-bundle
           gh release upload "${{ inputs.release_tag }}" \
             pkg/paq8px-linux-x86_64.tar.gz pkg/paq8px-linux-x86_64.tar.gz.sha256 \
-            pkg-bundle/heavenzip-linux-x86_64.tar.gz pkg-bundle/heavenzip-linux-x86_64.tar.gz.sha256 \
+            pkg-bundle/heavenzip-*-linux-x86_64.tar.gz pkg-bundle/heavenzip-*-linux-x86_64.tar.gz.sha256 \
             --repo "${{ github.repository }}" --clobber
