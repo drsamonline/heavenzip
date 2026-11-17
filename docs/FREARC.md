@@ -146,6 +146,51 @@ FreeArc's presets assume a desktop with gigabytes to spare. A bundle that ships 
 laptops should keep preset 9's default and let `autotune` say when a bigger dictionary
 would have paid — on a machine that has the memory.
 
+## Content classes: FreeArc routes by filename, heavenzip by content
+
+FreeArc's `arc.groups` (captured in `config/freearc/arc-groups.txt`) defines thirteen
+groups — `$text`, `$binary`, `$exe`, `$iso`, `$obj`, `$bmp`, `$wav`, `$mod`, `$precomp`,
+`$jpg`, `$jpgsolid`, `$default` — and assigns files to them **by pattern**:
+
+```
+$obj
+*.dcu
+*.obj
+*.o
+*.a
+*.lib
+$exe
+*.com
+*.exe
+*.scr
+$bmp
+*.bmp
+*.tif
+*.tiff
+```
+
+Each group then selects its own chain: `$wav => tta`, `$bmp => mm+grzip:8mb:m1:l2048:h15:a`,
+`$exe => dispack`, `$text => dict+lzp+ppmd`.
+
+heavenzip refuses that approach on purpose — classification is by content, never
+extension — and the class set it has is coarser:
+
+| FreeArc group | heavenzip class | what heavenzip does |
+|---|---|---|
+| `$text` | `text` | srep → engine |
+| `$bmp`, `$wav`, `$exe`, `$iso`, `$mod` | **`binary`** | the generic engine |
+| `$precomp`, `$jpg` | `media` | the engine, which links preflate |
+
+**Measured:** a 16 KB WAV, a 10 KB BMP and a 4 MB executable all classify as `binary`.
+That is correct by the content rule — none of them is text — and it is a real limitation:
+the three coders those groups exist for (`tta` for audio, `mm` for bitmap, `dispack` for
+x86) are not in this bundle, so a finer class would route to the same generic coder
+anyway.
+
+Adding the classes without the coders would be a label with nothing behind it. The
+honest position is that heavenzip's classification is coarser **and** its codec set is
+narrower, and both would have to change together.
+
 ## Where to look
 
 - `FA-master/0.20/CompressionMethod.lua` — the `[Compression methods]` table itself.
