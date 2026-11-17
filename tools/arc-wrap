@@ -1,0 +1,57 @@
+#!/bin/sh
+# arc-wrap — adapt 7-Zip's archive CLI to the one-file-in, one-file-out shape a
+# heavenzip step needs.
+#
+#   arc-wrap c IN OUT     archive IN into OUT
+#   arc-wrap d IN OUT     restore OUT from the archive IN
+#
+# FreeArc is an archiver: `7z a ARCHIVE FILES` and `7z x ARCHIVE -oDIR`. It stores a
+# file under the name it was given and extracts into a directory, so the payload is
+# staged as `payload` in a temporary directory. That keeps the stored name constant,
+# which is what makes the restore predictable.
+#
+# FREARC_BIN overrides the binary; by default it is the one beside this script.
+set -eu
+
+# Everything must be absolute before the first cd: a relative OUT would be created
+# inside the staging directory and deleted with it.
+abspath() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *)  printf '%s/%s\n' "$(pwd)" "$1" ;;
+  esac
+}
+
+mode="${1:?usage: arc-wrap (c|d) IN OUT}"
+in="${2:?usage: arc-wrap (c|d) IN OUT}"
+out="${3:?usage: arc-wrap (c|d) IN OUT}"
+
+FREARC="$(abspath "${FREARC_BIN:-$(dirname "$0")/arc}")"
+in="$(abspath "$in")"
+out="$(abspath "$out")"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT INT TERM
+
+case "$mode" in
+  c)
+    cp "$in" "$work/payload"
+    # -mx=9 is the maximum for the default LZMA2 method; -bso0/-bsp0 keep 7-Zip's
+    # progress off stdout, which heavenzip treats as the step's log.
+    # -m5 is the highest preset that resolves without FreeArc's method table; -m9
+    # needs the [Compression methods] config and fails with "method 9".
+    ( cd "$work" && PATH="$(dirname "$FREARC"):$PATH" "$FREARC" a "$out" payload -m5 -y >/dev/null )
+    # FreeArc appends `.arc` to an archive name that does not end in it, so the file
+    # lands beside the one the step asked for. Renaming it is the adapter's job.
+    if [ -f "$out.arc" ] && [ ! -f "$out" ]; then mv "$out.arc" "$out"; fi
+    ;;
+  d)
+    ( cd "$work" && PATH="$(dirname "$FREARC"):$PATH" "$FREARC" x "$in" -o"$work" -y >/dev/null )
+    [ -f "$work/payload" ] || { echo "arc-wrap: nothing extracted" >&2; exit 1; }
+    mv "$work/payload" "$out"
+    ;;
+  *)
+    echo "arc-wrap: unknown mode '$mode' (use c or d)" >&2
+    exit 2
+    ;;
+esac

@@ -57,16 +57,17 @@ void test_master_config_parses() {
   CHECK(master.log_level == "info");
   CHECK(!master.ziptastic_bin.empty());
   CHECK(master.default_profile == "plain");
-  CHECK(master.available.size() == 13);
+  CHECK(master.available.size() == 14);
   CHECK(master.available[0] == "plain");
   CHECK(master.available[4] == "max-ratio");
   // The system-tool profiles: zstd, xz, gzip, looked up on PATH.
   CHECK(master.available[5] == "max-deflate");
   CHECK(master.available[6] == "max-ratio-7z");
   CHECK(master.available[7] == "freearc-9b");
-  CHECK(master.available[9] == "zstd");
-  CHECK(master.available[11] == "gzip");
-  CHECK(master.available[12] == "zpaq");
+  CHECK(master.available[8] == "freearc");
+  CHECK(master.available[10] == "zstd");
+  CHECK(master.available[12] == "gzip");
+  CHECK(master.available[13] == "zpaq");
 }
 
 void test_every_shipped_profile_parses() {

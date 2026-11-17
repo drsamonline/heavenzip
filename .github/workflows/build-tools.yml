@@ -211,6 +211,20 @@ jobs:
           cmp /tmp/s.txt /tmp/s.back
           echo "srep round trip ok"
 
+      - name: Build FreeArc's arc and unarc
+        run: |
+          set -euo pipefail
+          CXX=/usr/local/bin/zig-cxx ZIG_TARGET=x86_64-linux-gnu.2.28 \
+            python3 tools/build-freearc.py /tmp/hcs/old/freearc-c-main /tmp/fa
+          # Extraction shells out to `unarc`, so both must round-trip, not just build.
+          cd /tmp && rm -rf tfa && mkdir tfa && cd tfa
+          head -c 20000 /dev/urandom | base64 > s.txt
+          PATH=/tmp/fa:$PATH /tmp/fa/arc a o.arc s.txt -m5 -y >/dev/null
+          rm -f s.txt
+          PATH=/tmp/fa:$PATH /tmp/fa/arc x o.arc -y >/dev/null
+          test -f s.txt || { echo "::error::FreeArc restored nothing"; exit 1; }
+          echo "freearc round-trips"
+
       - name: Build 7-Zip without make
         # 7-Zip ships makefiles, not CMake, and the container has no make. The script
         # reads the makefile for its object list and rules instead of running it.
@@ -307,6 +321,10 @@ jobs:
           cp /tmp/xz/xz stage/heavenzip/bin/xz
           cp /tmp/pc/precomp stage/heavenzip/bin/precomp
           cp /tmp/7z stage/heavenzip/bin/7z
+          cp /tmp/fa/arc stage/heavenzip/bin/arc
+          cp /tmp/fa/unarc stage/heavenzip/bin/unarc
+          cp tools/arc-wrap stage/heavenzip/bin/arc-wrap
+          chmod +x stage/heavenzip/bin/arc-wrap
           cp tools/7z-wrap stage/heavenzip/bin/7z-wrap
           chmod +x stage/heavenzip/bin/7z-wrap
           cp -r config stage/heavenzip/config
@@ -333,7 +351,7 @@ jobs:
           # executable: the round trip below failed with "exec bin/ziptastic:
           # Permission denied" while every byte was correct.
           chmod +x stage/heavenzip/heavenzip stage/heavenzip/bin/*
-          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep bin/brotli bin/xz bin/precomp bin/7z heavenzip > SHA256SUMS )
+          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep bin/brotli bin/xz bin/precomp bin/7z bin/arc bin/unarc heavenzip > SHA256SUMS )
           ( cd stage && tar -czf "heavenzip-${VERSION}-linux-x86_64.tar.gz" heavenzip )
           # Name the file, not the staging path: `sha256sum -c` against a line
           # reading `stage/heavenzip-...` fails for anyone who downloaded just the

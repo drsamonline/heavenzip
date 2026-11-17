@@ -36,6 +36,17 @@ BASE_FLAGS = [
 ]
 EXTRACTOR_FLAGS = ["-DFREEARC_DECOMPRESS_ONLY", "-DUNARC"]
 
+# The Makefile gives individual objects their own extra flags, and missing one is not
+# a build failure — it is a binary that crashes at runtime:
+#
+#   C_LZMA.cpp  -DFREEARC_NO_MF_MT   without it the multithreaded match finder is
+#                                    compiled in and `arc a -mlzma` segfaults
+#   C_PPMD.cpp  -fno-strict-aliasing  the Makefile's ENC_CFLAGS_NO_SA
+PER_SOURCE_FLAGS = {
+    "Compression/LZMA2/C_LZMA.cpp": ["-DFREEARC_NO_MF_MT"],
+    "Compression/PPMD/C_PPMD.cpp": ["-fno-strict-aliasing"],
+}
+
 
 def sources_for(mk_text: str, link_var: str) -> list[str]:
     rules = {}
@@ -61,7 +72,7 @@ def build(root: pathlib.Path, out_dir: pathlib.Path, name: str, srcs: list[str],
         obj = obj_dir / (src.replace("/", "_").replace(".cpp", ".o"))
         if not obj.exists() or obj.stat().st_mtime < source.stat().st_mtime:
             argv = [CXX, *(["-target", TARGET] if IS_ZIG else []), *BASE_FLAGS, *extra,
-                    "-c", "-o", str(obj), str(source)]
+                    *PER_SOURCE_FLAGS.get(src, []), "-c", "-o", str(obj), str(source)]
             done = subprocess.run(argv, capture_output=True, text=True, cwd=root / "src")
             if done.returncode != 0:
                 print(f"FAILED {src}\n{done.stderr[:1500]}", file=sys.stderr)
