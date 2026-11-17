@@ -93,11 +93,13 @@ RunResult run_capture(const std::vector<std::string>& argv, const fs::path& stdo
   PROCESS_INFORMATION child{};
   std::vector<char> command_line(line.begin(), line.end());
   command_line.push_back('\0');
-  const BOOL started = CreateProcessA(nullptr, command_line.data(), nullptr, nullptr,
+  // Not `started`: this function already uses that name for the steady_clock reading
+  // at the top, and MSVC refuses the redefinition outright.
+  const BOOL spawned = CreateProcessA(nullptr, command_line.data(), nullptr, nullptr,
                                       TRUE, 0, nullptr, nullptr, &startup, &child);
   CloseHandle(out);
   CloseHandle(err);
-  if (!started) {
+  if (!spawned) {
     const DWORD why = GetLastError();
     throw std::runtime_error("cannot start `" + argv.front() + "` (error " +
                              std::to_string(why) + ")");
