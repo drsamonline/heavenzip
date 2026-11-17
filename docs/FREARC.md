@@ -187,6 +187,22 @@ the three coders those groups exist for (`tta` for audio, `mm` for bitmap, `disp
 x86) are not in this bundle, so a finer class would route to the same generic coder
 anyway.
 
+**A workaround that does pay, measured.** FreeArc's `mm:2*8` is a delta of stride 2, and
+xz has that filter. On a 16 KB 16-bit PCM WAV:
+
+| profile | bytes |
+|---|---|
+| `xz -9` | 4,936 |
+| `audio` (`--delta=dist=2 --lzma2=preset=9`) | **3,044** |
+
+38% smaller than plain LZMA, because consecutive samples differ by a little and delta
+turns a waveform into small numbers. `audio` exists for that and nothing else.
+
+The engine could not be measured on the same file: **`ziptastic` segfaults on any valid
+16-bit PCM WAV** (reported as ziptastic#22, with a 2 KB reproducer). A truncated WAV
+passes because parsing rejects it and the transform never runs — which is exactly how a
+corpus of malformed samples would miss this.
+
 Adding the classes without the coders would be a label with nothing behind it. The
 honest position is that heavenzip's classification is coarser **and** its codec set is
 narrower, and both would have to change together.
