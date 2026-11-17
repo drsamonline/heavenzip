@@ -49,6 +49,10 @@ struct ReverseStep {
   // brotli-shaped tool puts it in the middle (`-o OUT IN`), not last.
   std::size_t out_index = 0;
   bool stdout_to_output = false;   // the reverse writes its result to stdout
+  // When the restore target sits inside a token rather than being one — precomp's
+  // `-oFILE` is the case — this holds what precedes it, so the substitution rebuilds
+  // the token instead of replacing it and dropping the switch.
+  std::string out_prefix;
 };
 std::vector<ReverseStep> read_reverse_plan(const std::filesystem::path& manifest);
 

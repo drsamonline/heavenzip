@@ -290,6 +290,7 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome) {
     json << "    {\"step\": \"" << escape(command.step) << "\", "
          << "\"argv\": " << array_of(command.argv) << ", "
          << "\"reverse\": " << array_of(command.reverse) << ", "
+         << "\"reverse_out_prefix\": \"" << command.reverse_out_prefix << "\", "
          << "\"reverse_out_index\": "
          // -1 means "the reverse writes to stdout, there is no argument to replace".
          // Written as a negative rather than SIZE_MAX because JSON numbers are read
@@ -336,6 +337,10 @@ std::vector<ReverseStep> read_reverse_plan(const fs::path& manifest) {
     if (to_stdout != nullptr && to_stdout->get()->kind == Value::Kind::Bool) {
       step.stdout_to_output = to_stdout->get()->boolean;
     }
+    const ValuePtr* out_prefix = entry->find("reverse_out_prefix");
+    if (out_prefix != nullptr && out_prefix->get()->kind == Value::Kind::String) {
+      step.out_prefix = out_prefix->get()->text;
+    }
     const ValuePtr* out_index = entry->find("reverse_out_index");
     if (out_index != nullptr && out_index->get()->kind == Value::Kind::Number) {
       const double recorded = out_index->get()->number;
@@ -368,7 +373,7 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     // The last reverse step would write back over the original file; send it to
     // `out` instead, so decompressing never destroys the input it came from.
     if (i + 1 == steps.size() && !out.empty() && command.out_index < command.argv.size()) {
-      command.argv[command.out_index] = out.string();
+      command.argv[command.out_index] = command.out_prefix + out.string();
     }
     // Clear the file this step is about to produce. The forward run keeps its
     // intermediates, and ziptastic refuses to overwrite ("exists (use -f)"), so
@@ -378,7 +383,8 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     {
       std::error_code ec;
       if (command.out_index < command.argv.size()) {
-        fs::remove(command.argv[command.out_index], ec);
+        // The token may be `-oFILE`; the file is what follows the prefix.
+        fs::remove(command.argv[command.out_index].substr(command.out_prefix.size()), ec);
       } else if (command.stdout_to_output && !out.empty()) {
         // No output argument: the file to clear is the one stdout will be pointed at.
         fs::remove(i + 1 == steps.size() ? out : fs::path(), ec);

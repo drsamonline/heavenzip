@@ -215,13 +215,33 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     // substitution at its last argument made decompression read the file it was
     // meant to write.
     command.reverse_out_index = kNoReverseOutIndex;
+    command.reverse_out_prefix.clear();
+    // An exact token match wins. Only if there is none does an embedded match count,
+    // and only when something precedes the path — `-oFILE`. Scanning for a substring
+    // in one pass was wrong: `<input>.hzpkg` contains `<input>`, so the archive was
+    // taken for the restore target and the last step wrote over the user's input.
     for (std::size_t k = 1; k < command.reverse.size(); ++k) {
       if (command.reverse[k] == current.string()) {
         command.reverse_out_index = k;
         break;
       }
     }
+    if (command.reverse_out_index == kNoReverseOutIndex) {
+      for (std::size_t k = 1; k < command.reverse.size(); ++k) {
+        const std::size_t at = command.reverse[k].find(current.string());
+        if (at != std::string::npos && at > 0) {
+          command.reverse_out_index = k;
+          command.reverse_out_prefix = command.reverse[k].substr(0, at);
+          break;
+        }
+      }
+    }
 
+    // Where the restore target sits, or "nowhere". The default used to be the last
+    // argument, which is right for `tool d IN OUT` and wrong for a tool that writes
+    // to stdout: `gzip -d -c {in}` has no output argument at all, and pointing the
+    // substitution at its last argument made decompression read the file it was
+    // meant to write.
     plan.steps.push_back(std::move(command));
     current = next;
   }
