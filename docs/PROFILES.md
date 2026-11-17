@@ -24,7 +24,7 @@ command and nothing else.
 | Section | Keys | Rules |
 |---|---|---|
 | `[route]` | `detect`, `pipeline` | both required; `detect` is one of `text`, `media`, `wav`, `bmp`, `archive`, `binary`, `any`; `pipeline` is a comma-separated list of step names, in order |
-| one section per step | `bin`, `args`, `reverse_args` | `bin` optional (defaults to `ziptastic_bin`); `args` passed verbatim; `reverse_args` optional, see below |
+| one section per step | `bin`, `args`, `reverse_args`, `stdout_to_output`, `optional` | `bin` optional (defaults to `ziptastic_bin`); `args` passed verbatim; `reverse_args` optional, see below; `optional = true` lets the step be dropped when its tool is absent, see "Steps that are optional" |
 
 Anything else is an error, with the file and the line:
 
@@ -36,7 +36,7 @@ Anything else is an error, with the file and the line:
 | a step named in `pipeline` with no section | `pipeline names step 'x' but there is no [x] section` |
 | a section not named in `pipeline` | `[x] is not named in pipeline` |
 | the same step twice | `pipeline names step 'x' twice; a pipeline is linear and a repeated step is a cycle` |
-| an unknown key in a step | `[x] has unknown key 'y' (bin, args and reverse_args are the only ones)` |
+| an unknown key in a step | `[x] has unknown key 'y' (bin, args, reverse_args, stdout_to_output and optional are the only ones)` |
 
 `;` and `#` start a comment. A `;` inside quotes is data, so
 `args = -x ";not a comment"` survives.
@@ -62,6 +62,38 @@ the audio route is a delta filter with a 2-byte stride and it makes companded au
 bigger, so those files are `binary`. An RLE or BITFIELDS bitmap has no colour planes to
 split, so it is `binary` too. Both classes are decided by content: a WAV renamed `.dat`
 is still `wav`.
+
+## Steps that are optional
+
+Some tools cannot be shipped. SREP is "all rights reserved, not redistributable in any
+form" and paq8px is GPL-2+, so a profile that chains either can never carry it — and
+without a way to say so, such a profile is broken on every machine but the author's.
+
+```ini
+[srep]
+bin = bin/srep.exe
+args = -l256m -m3f
+optional = true
+```
+
+`optional = true` means: if the tool is not present, drop this step and carry on. The
+drop is reported once on stderr, recorded in the manifest's `skipped` array, and
+`bench` marks the row `(ran without an optional tool)` instead of `skipped (bin
+missing)`.
+
+It does **not** mean "ignore failures at run time". A step whose tool *is* present and
+exits non-zero still fails the chain, because a tool that is there and refuses is a
+different event from a tool that was never shipped.
+
+A profile whose every step is optional and absent refuses with the reason rather than
+running nothing:
+
+```
+heavenzip: profile `strong` cannot run: every step in it needs a tool that is not present
+  step `paq8px` dropped: bin/paq8px.exe is not present, and the profile declares it optional
+```
+
+`ziptastic` is never optional. A missing engine is a refusal, not a degraded run.
 
 ## Steps, and the reverse of a step
 

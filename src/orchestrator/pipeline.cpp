@@ -300,12 +300,23 @@ void write_manifest(const Plan& plan, const RunOutcome& outcome) {
                  : static_cast<long long>(command.reverse_out_index))
          << ", "
          << "\"stdout_to_output\": " << (command.stdout_to_output ? "true" : "false") << ", "
+         << "\"produced\": \"" << escape(command.produced) << "\", "
          << "\"exit_code\": " << (step ? step->exit_code : -1) << ", "
          << "\"seconds\": " << number(step ? step->seconds : 0.0) << "}";
     if (i + 1 < plan.steps.size()) json << ",";
     json << "\n";
   }
-  json << "  ]\n}\n";
+  json << "  ],\n";
+  // What the profile declared optional and the machine did not have. The reverse plan
+  // is built from `steps`, which is what ran, so this is a record and not an input:
+  // it says the archive was made without SREP, which is the difference between two
+  // archives of different sizes and the same name.
+  json << "  \"skipped\": [";
+  for (std::size_t i = 0; i < plan.notices.size(); ++i) {
+    if (i > 0) json << ", ";
+    json << "\"" << escape(plan.notices[i]) << "\"";
+  }
+  json << "]\n}\n";
 
   std::ofstream out(plan.manifest);
   if (!out) throw std::runtime_error(plan.manifest.string() + ": cannot be written");
@@ -340,6 +351,10 @@ std::vector<ReverseStep> read_reverse_plan(const fs::path& manifest) {
     const ValuePtr* out_prefix = entry->find("reverse_out_prefix");
     if (out_prefix != nullptr && out_prefix->get()->kind == Value::Kind::String) {
       step.out_prefix = out_prefix->get()->text;
+    }
+    const ValuePtr* produced = entry->find("produced");
+    if (produced != nullptr && produced->get()->kind == Value::Kind::String) {
+      step.produced = produced->get()->text;
     }
     const ValuePtr* out_index = entry->find("reverse_out_index");
     if (out_index != nullptr && out_index->get()->kind == Value::Kind::Number) {
@@ -380,22 +395,33 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
     // reversing any pipeline longer than one step failed on its first step while
     // the bytes were perfectly recoverable. Decompression owns its output; the
     // forward direction does not, which is why only this side clears anything.
+    // Where this reverse step writes. Three cases, and the third was the bug:
+    //
+    //   * the command names the file (`-oOUT`, or OUT last) — substitute, as before;
+    //   * a stdout-writing step that is the last one — stdout is pointed at `out`;
+    //   * a stdout-writing step in the *middle* of the chain — stdout must be pointed
+    //     at the file the next reverse step reads, which is what this step produced
+    //     going forward. Deriving it as "nowhere" (the old behaviour) sent the payload
+    //     to the caller's terminal, left no file for the next step, and — worse — let
+    //     the verify pass read the forward run's leftover intermediate instead of the
+    //     archive, so `verified` was reported for a chain whose reverse never ran.
+    const fs::path reverse_output = command.out_index < command.argv.size()
+        ? fs::path(command.argv[command.out_index].substr(command.out_prefix.size()))
+        : (command.stdout_to_output
+               // The *next* reverse step's `produced`, not this one's: reverse step i
+               // undoes forward step i, so what it writes is what the step before it in
+               // the forward chain produced. Using this step's own `produced` pointed
+               // stdout at the archive for the first reverse step and truncated the
+               // file it was about to read.
+               ? (i + 1 == steps.size() || out.empty() ? out : fs::path(steps[i + 1].produced))
+               : fs::path());
     {
       std::error_code ec;
-      if (command.out_index < command.argv.size()) {
-        // The token may be `-oFILE`; the file is what follows the prefix.
-        fs::remove(command.argv[command.out_index].substr(command.out_prefix.size()), ec);
-      } else if (command.stdout_to_output && !out.empty()) {
-        // No output argument: the file to clear is the one stdout will be pointed at.
-        fs::remove(i + 1 == steps.size() ? out : fs::path(), ec);
-      }
+      if (!reverse_output.empty()) fs::remove(reverse_output, ec);
     }
 
     StepOutcome step;
     step.step = command.step;
-    const fs::path reverse_output = command.out_index < command.argv.size()
-        ? fs::path(command.argv[command.out_index])
-        : (i + 1 == steps.size() ? out : fs::path());
     const fs::path out_log = command.stdout_to_output
         ? reverse_output
         : manifest.parent_path() / (log_base.string() + "." + command.step + ".reverse.stdout");

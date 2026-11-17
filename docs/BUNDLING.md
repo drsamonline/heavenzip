@@ -119,6 +119,10 @@ The current `max-ratio` profile chains `srep,paq8px`. Under this design:
 - **paq8px** becomes a bundled tool with source → the profile works out of the box.
 - **SREP** cannot be bundled → the profile must *detect* it and fall back. A missing
   SREP should degrade to `ziptastic:lzma` with a one-line notice, not fail.
+  **Implemented** — a step section declares `optional = true`, and `build_plan` drops
+  such a step when its tool is absent, records the drop in the manifest's `skipped`
+  array and reports it on stderr. Every profile that names `srep` or `paq8px` declares
+  it optional; `ziptastic` never does, so a missing engine is still a refusal.
 
 That is a real behavioural requirement the design should state, because a bundled
 distribution whose default profile depends on an unbundleable tool is broken on
