@@ -1,0 +1,284 @@
+[Compression methods]
+1xx=tor:9:c1
+2xx=tor:9:c2
+3xx=tor:9:c3 / dict+tor:9:c3 / $bmp=mm+tor:9:c3 / $wav=mm+tor:9:c3
+4xx=tor:9:c4 / dict+tor:9:c4 / $bmp=mm+tor:9:c3 / $wav=wavfast
+#xx=9d
+#p = maxprecomp +exe2+maxsrep+#xb / $text=#t / $wav = #$wav / $bmp = #$bmp
+#j = maxprecompj+exe2+maxsrep+#xb / $text=#t / $wav = #$wav / $bmp = #$bmp
+precompj    = precomp042:c-
+precomp     = precompj:t-j
+maxprecompj = precompj:intense
+maxprecomp  = precomp:intense
+maxsrep     = srep:m3f:mem256mb
+axs = 9s
+#s = precs+#rep+exe+#xb / $obj=precs+#pb / $text=#pt / $wav = #$wav / $bmp = #$bmp
+#s$iso      = ecm + precs + #rep + exe + #xb
+#s$jpgsolid = precs + rep:32
+#s$jpg      = jpg
+#n = #bn/$text=#tn /$obj=#xb /$compressed=rep:64m + slug /$wav=tta /$bmp=mm+blizs   ;; /$jpg=jpg /$jpgsolid=precomp+rep:32
+1tn = nzt100
+2tn = nzt100
+3tn = nzt100
+4tn = dict:p:  96m:80% + lzp: 64m: 65:d1m:s16:h20:90% + ppmd:8:192m
+5tn = dict:p: 128m:80% + lzp: 80m:105:d1m:s32:h22:92% + ppmd:12:384m
+#tn = #t
+3bn = rep:  64m + 3xb
+4bn = rep:  96m + 4xb
+#bn = #b
+1xfb = tor:11:c1
+1xft = tor:11:c1
+2xfb = tor:11:c2
+2xft = tor:11:c2
+3xfb = tor:11:c3
+3xft = dict+tor:11:c3
+4xfb = tor:11:c4
+4xft = dict+tor:11:c4
+#xf = 9d
+xpccme = precomp+ccm
+xpccxme = precomp+ccmx
+xprzme = precomp+rep:512mb+delta+rzm
+xpcmme = precomp+cmm
+xprings = precomp+rings
+xpthor = precomp + thor
+xpslug = precomp + slug
+xpbzp = precomp + bzp
+xpbcm = precomp + bcm
+xprar = precomp + rar
+xp7z = precomp + 7z
+xpmax = precomp + exe + 9b
+xpbliz = precomp + bliz
+xpnzo = precomp + nz:o
+xpnzc = precomp + nz:c
+xpnzO2 = precomp + nz:O
+xppmm = precomp + pmm
+xppmmi = precomp + pmmi
+5rzm = rep:300mb+delta+rzm/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32
+5brzm = rep:300mb+delta+rzm/$exe=bcj2+rep:300mb+delta+rzm/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32
+5ccm = ccm/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+ccm/$precomp=precomp+ccm
+5bccm = ccm/$exe=bcj2+ccm/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm/$precomp=precomp+ccm
+5ccms = ccms/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32//$jpg=jpg/$jpgsolid=precomp+rep:32
+5bccms = ccms/$exe=bcj2+ccms/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccms/$precomp=precomp+ccms
+5ccmx = ccmx/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+ccmx/$precomp=precomp+ccmx
+5bccmx = ccmx/$exe=bcj2+ccmx/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx/$precomp=precomp+ccmx
+5ccm2 = ccm2/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+ccm2/$precomp=precomp+ccm2
+5bccm2 = ccm2/$exe=bcj2+ccm2/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm2/$precomp=precomp+ccm2
+5ccmx2 = ccmx2/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+ccmx2/$precomp=precomp+ccmx2
+5bccmx2 = ccmx2/$exe=bcj2+ccmx2/$text=dict:p+lzp+ppmd:10:512mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx2/$precomp=precomp+ccmx2
+5ccmxs = ccmxs/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+ccmxs/$precomp=precomp+ccmxs
+5bccmxs = ccmxs/$exe=bcj2+ccmxs/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmxs/$precomp=precomp+ccmxs
+5ccm2s = ccm2s/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+ccm2s/$precomp=precomp+ccm2s
+5bccm2s = ccm2s/$exe=bcj2+ccm2s/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm2s/$precomp=precomp+ccm2s
+5ccmx2s = ccmx2s/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+ccmx2s/$precomp=precomp+ccmx2s
+5bccmx2s = ccmx2s/$exe=bcj2+ccmx2s/$text=dict:p+lzp+ppmd:8:300mb/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx2s/$precomp=precomp+ccmxs
+xrzm = rep:512mb+delta+rzm/$obj=rep:128mb+lzma:64mb/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+rep:512mb+delta+rzm/$precomp=precomp+rep:512mb+delta+rzm
+xbrzm = rep:512mb+delta+rzm/$exe=bcj2+rep:512mb+delta+rzm/$obj=rep:128mb+lzma:64mb/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+rep:512mb+delta+rzm/$precomp=precomp+rep:512mb+delta+rzm
+xccm = ccm/$exe=ccm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm/$precomp=precomp+ccm
+xccms = ccms/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccms/$precomp=precomp+ccms
+xccmx = ccmx/$exe=ccmx/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx/$precomp=precomp+ccmx
+xccm2 = ccm2/$exe=ccm2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm2/$precomp=precomp+ccm2
+xccmx2 = ccmx2/$exe=ccmx2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx2/$precomp=precomp+ccmx2
+xcmms = cmms/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+cmms/$precomp=precomp+cmms
+xcmm = cmm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+cmm/$precomp=precomp+cmm
+xccmxs = ccmxs/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmxs/$precomp=precomp+ccmxs
+xccm2s = ccm2s/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm2s/$precomp=precomp+ccm2s
+xccmx2s = ccmx2s/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx2s/$precomp=precomp+ccmx2s
+xbccm = ccm/$exe=bcj2+ccm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm/$precomp=precomp+ccm
+xbccmx = ccmx/$exe=bcj2+ccmx/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx/$precomp=precomp+ccmx
+xbccm2 = ccm2/$exe=bcj2+ccm2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm2/$precomp=precomp+ccm2
+xbccmx2 = ccmx2/$exe=bcj2+ccmx2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=bmp/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx2/$precomp=precomp+ccmx2
+xdul = dul/$text=dult/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xdur256 = dur256/$text=durt/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xdur = dur/$text=durt/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xprzm = precomp+rep:512mb+delta+rzm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccm = precomp+ccm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccmx = precomp+ccmx/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccm2 = precomp+ccm2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccmx2 = precomp+ccmx2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpcmms = precomp+cmms/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccms = precomp+ccms/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccmxs = precomp+ccmxs/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccm2s = precomp+ccm2s/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccmx2s = precomp+ccmx2s/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbrzm = precomp+bcj2+rep:512mb+delta+rzm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccm = precomp+bcj2+ccm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccmx = precomp+bcj2+ccmx/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccm2 = precomp+bcj2+ccm2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccmx2 = precomp+bcj2+ccmx2/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbcmms = precomp+cmms/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccms = precomp+bcj2+ccms/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccmxs = precomp+bcj2+ccmxs/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccm2s = precomp+bcj2+ccm2s/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpbccmx2s = precomp+bcj2+ccmx2s/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpcmm = precomp+cmm/$text=dict:p+lzp+tempfile+ppmd:14:1024mb:r1/$wav=tta/$bmp=mm+bliz/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpdul = precomp+dul/$text=dict:p+lzp+dult/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpdur256 = precomp+dur256/$text=dict:p+lzp+dur256/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpdur = precomp+dur/$text=dict:p+lzp+dur/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xdur256p = dur256/$text=dict:p+lzp+pmm:o16:1024m/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xdurp = dur/$text=dict:p+lzp+pmm:o16:1024m/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpdur256p = precomp+dur256/$text=dict:p+lzp+pmm:o16:1024m/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpdurp = precomp+dur/$text=dict:p+lzp+pmm:o16:1024m/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xrzmp = rep:512mb+delta+rzm/$obj=rep:128mb+lzma:64mb/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+rep:512mb+delta+rzm/$precomp=precomp+rep:512mb+delta+rzm
+xbrzmp = bcj2+rep:512mb+delta+rzm/$obj=rep:128mb+lzma:64mb/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+rep:512mb+delta+rzm/$precomp=precomp+rep:512mb+delta+rzm
+xccmp = bcj2+ccm/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm/$precomp=precomp+ccm
+xccmxp = bcj2+ccmx/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx/$precomp=precomp+ccmx
+xccm2p = bcj2+ccm2/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccm2/$precomp=precomp+ccm2
+xccmx2p = bcj2+ccmx2/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+bcj2+ccmx2/$precomp=precomp+ccmx2
+xcmmsp = cmms/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xcmmp = cmm/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xdulp = dul/$text=pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xprzmp = precomp+rep:512mb+delta+rzm/$text=dict:p+lzp+pmm:16:1024mb/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+rep:512mb+delta+rzm/$precomp=precomp+rzm
+xpccmp = precomp+bcj2+ccm/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccmxp = precomp+bcj2+ccmx/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccm2p = precomp+bcj2+ccm2/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpccmx2p = precomp+bcj2+ccmx2/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpcmmp = precomp+cmm/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpcmmsp = precomp+cmms/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xpdulp = precomp+dul/$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=tta/$bmp=mm+blizs/$jpg=jpg/$jpgsolid=precomp+rep:32
+xmm = exe+rep:384m:85%+9xb /$text=9t/$wav=tak:4/$bmp=bmf2/$jpg=jpg/$jpgsolid=precomp+rep:32
+xmm4 = exe+rep:384m:85%+9xb /$text=9t/$wav=mma3/$bmp=bmf2/$jpg=jpg/$jpgsolid=precomp+rep:32
+xmm9 = exe+rep:512m:85%+rep:512m:90%+9xb /$text=dict:p+lzp+pmm:16:1024mb:r1/$wav=ofrmax/$bmp=bmf2:S/$jpg=jpg/$jpgsolid=precomp+rep:32/$iso=ecm+precomp+exe+rep:512m:85%+rep:512m:90%+9xb/$precomp=precomp+rep:512mb:85%+9xb
+dicte = dict:100mb:l8192:m1200:s1000
+dicte1 = dict:250mb:l8192:m6000:s6000
+1iso = 1p$iso
+2iso = 2p$iso
+3iso = 3p$iso
+4iso = ecm+precomp+rep:512mb+exe+delta+lzma:1gb:128:ht4:mc16
+5iso = ecm+precomp+rep:512mb+exe+delta+lzma:1gb:128:ht4:mc32
+6iso = ecm+precomp+rep:512mb+exe+delta+lzma:1gb:128:ht4:mc64
+7iso = ecm+precomp+rep:512mb+exe+delta+lzma:1gb:200:ht4:mc128
+8iso = ecm+precomp+rep:512mb+exe+delta+lzma:1gb:273:ht4:mc256
+9iso = ecm+precomp+rep:512mb+exe+delta+lzma:1gb:273:ht4:mc512
+1isb = 1p$iso
+2isb = 2p$iso
+3isb = 3p$iso
+4isb = ecm+precomp+rep:512mb+bcj2+delta+lzma:1gb:128:ht4:mc16
+5isb = ecm+precomp+rep:512mb+bcj2+delta+lzma:1gb:128:ht4:mc32
+6isb = ecm+precomp+rep:512mb+bcj2+delta+lzma:1gb:128:ht4:mc64
+7isb = ecm+precomp+rep:512mb+bcj2+delta+lzma:1gb:200:ht4:mc128
+8isb = ecm+precomp+rep:512mb+bcj2+delta+lzma:1gb:273:ht4:mc256
+9isb = ecm+precomp+rep:512mb+bcj2+delta+lzma:1gb:273:ht4:mc512
+#is = exe + #pb/$text = #tr /$wav = tta /$bmp = mm+bliz /$jpg = jpg /$jpgsolid=precomp+rep:32 /$precomp=precomp+exe+ #pb /$iso = #iso
+#ib = bcj2 + #pb/$text = #tr /$wav = tta /$bmp = mm+bliz /$jpg = jpg /$jpgsolid=precomp+rep:32 /$precomp=precomp+bcj2+ #pb /$iso = #isb
+ccm = ccm130
+ccms = ccm130:4
+ccmx = ccmx130
+ccmxs = ccmx130:4
+ccm2s = ccm2:4
+ccmx2s = ccmx2:4
+rzm = rzm007
+sx = slugx
+bcm = bcm9
+uhx = uharcx
+uhax = uharcx
+lpaq  = lpaq8
+lpaqe = lpaq8e
+paq8px = paq8px64
+paq9 = paq9a
+po   = paq8o
+po8 = paq8o8
+po8z = paq8o8zw
+po9 = paq8o9
+po10 = paq8o10
+po10t = paq8o10t
+ppaq = paq8o8pre
+pp1 = paq8p1
+bwt = bwt110
+obwt = obwt15
+obwts = obwts15
+bwtss = obwts15
+bwts3 = obwts13
+bws = obwts15
+bwmonstr = bwm2
+tlzp = tarlzp
+flashzip = fzip099b5
+fzm = flashzip:m1:c7:b8
+fzg = flashzip:m2:c5:b5
+fz = flashzip
+fzip = flashzip
+packet = pack0:m4:s9
+packets = pack0:m3:s4
+nz = nz7
+nz0 = nz70
+nz1 = nz60
+nc = nz7:c
+not = nz0:cO:txt:m1g:nt:np
+nzt100 = nz0:co:txt:m100m:nt:np
+nz2 = nz5
+nz10 = nz60
+n1c = nz6:c
+nz1ot = nz10:cO:txt:m1g:nt:np
+bit = bit7
+cmm = cmm42b
+cmms = cmm42b:54
+cmm2 = cmm42
+cmm3 = cmm41
+bit01 = bit1
+lzsx = lzssx
+uha = uharc
+tors = torf
+mma = mma3
+la = la04b
+lah = la04bh
+la3 = la03c
+acw = acwav
+prec = precomp
+precs = precomp:intense
+precomp04s = precomp04:slow
+precomp1 = precomp038
+prec1 = precomp1
+precomp1s = precomp1:slow
+prec1s =precomp1s
+precomp2 = precomp037
+prec2 = precomp2
+precomp2s = precomp2:slow
+prec2s = precomp2s
+pprecs = pprec:slow
+qp = qpress037
+qp1 = qpress035
+qp2 = qpress011
+qp22 = qpress022
+qp11 = qpress011
+qp10 = qpress10
+qp44 = qpress0374
+rar64t = rart:64
+rar4a = rara
+rar64 = rar64t
+dict8 = dicte
+dict9 = dicte1
+dict100 = dicte
+dict1000 = dicte1
+r1 = rar:1
+r2 = rar:2
+r3 = rar:3
+r4 = rar:4
+blizs = bliz:20
+blizss = bliz:4
+bliz = bliz100
+dur256 = dur:m1024:o256
+ppmoi = pmmi
+ppmonstri = pmmi
+ppmi = pmmi
+ppmoh = pmmh
+ppmonstrh = pmmh
+ppmh = pmmh
+ppmonstr = pmm
+ppmonstrJ = pmm
+ppmoJ = pmm
+ppmdsh = ppmdsh8
+rep22 = 22rep
+rep33 = 33rep
+rep44 = 44rep
+lzssx = lzss:ex
+lzt = lzt095
+lzt1 = lzt094
+del = delta
+csc = csc31
+tp = tiffprec030
+hook = hook14
+hook1 = hook13
+pbz2 = pbzip2
+bz2 = pbzip2
+bwtmix = bwtmix1
+m03 = m03b
+lzp2 = lzp22
