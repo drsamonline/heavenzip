@@ -344,6 +344,16 @@ jobs:
 
           cp /tmp/hcs/LICENSES/GPL-2.0-only.txt stage/heavenzip/sources/paq8px-LICENSE 2>/dev/null || true
           cp /tmp/hcs/LICENSES/APACHE-2.0.txt stage/heavenzip/sources/preflate-LICENSE 2>/dev/null || true
+          # GPL-2 §3 and LGPL-2.1 §6 both require the source to travel with the binary,
+          # and 0BSD/Apache-2.0 require the licence text. These were shipped without
+          # either until a review of the bundle's own NOTICE found the rows missing.
+          ( cd /tmp/hcs/old/freearc-c-main && tar -czf "$OLDPWD/stage/heavenzip/sources/freearc-c-source.tar.gz" src Makefile README.md LICENSE )
+          cp /tmp/hcs/old/freearc-c-main/LICENSE stage/heavenzip/sources/freearc-c-LICENSE
+          ( cd /tmp/hcs/old/7z && tar -czf "$OLDPWD/stage/heavenzip/sources/7z-source.tar.gz" C CPP DOC/License.txt DOC/unRarLicense.txt )
+          ( cd /tmp/hcs/old/xz-master && tar -czf "$OLDPWD/stage/heavenzip/sources/xz-source.tar.gz" src COPYING )
+          ( cd /tmp/hcs/old/precomp-cpp-master && tar -czf "$OLDPWD/stage/heavenzip/sources/precomp-source.tar.gz" precomp.cpp contrib CMakeLists.txt LICENSE )
+          cp /tmp/hcs/old/precomp-cpp-master/LICENSE stage/heavenzip/sources/precomp-LICENSE
+          ls -la stage/heavenzip/sources/
           printf 'tag      %s\nasset    ziptastic-%s-linux-x86_64\nsha256   %s\nfetched  %s\n' \
             "$ENGINE_TAG" "${ENGINE_TAG#v}" "$(sha256sum stage/heavenzip/bin/ziptastic | cut -d' ' -f1)" \
             "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > stage/heavenzip/bin/ENGINE

@@ -25,6 +25,10 @@ never linked, and each keeps its own terms:
 |---|---|---|
 | `ziptastic` | MIT (same fleet) | the binary, verified against its release `SHA256SUMS` |
 | `paq8px` | **GPL-2.0-or-later** | the binary **and its source** (`sources/paq8px-source.tar.gz`) — GPL-2 §3 requires it |
+| `arc` + `unarc` | **GPL-2.0** | the binaries **and their source** — GPL-2 §3 requires it |
+| `7z` | **LGPL-2.1** with the unRAR restriction on the Rar* files | the binary **and its source** |
+| `xz` | **0BSD** (the `xz` tool; liblzma is 0BSD too) | the binary **and its source** |
+| `precomp` | **Apache-2.0** | the binary **and its source** |
 | `srep` | **the author's, not ours** — see below | the binary **and its source** (`sources/srep-source.tar.gz`) plus the build recipe; see below |
 | `brotli` | MIT | the binary, built statically from the vault so it needs only libc and libm |
 | `preflate` | Apache-2.0 | **not in this bundle**: it does not compile on POSIX. A Windows build ships separately as `preflate-windows-x86_64.tar.gz`, and the engine already links preflate internally |
