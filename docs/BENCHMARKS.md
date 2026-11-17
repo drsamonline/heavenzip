@@ -51,48 +51,52 @@ matching is enough.
   `n/a` — they **fail**, because every one of them names `bin/srep.exe` and SREP cannot be
   shipped in any form. Measured below; tracked as issue #90.
 
-## A media corpus, first measurement
+## A media corpus, and the chains that were never able to run
 
-The Silesia rows above are text and binaries, so the four `media` profiles had never been
-measured on media. Four real files, all of them test fixtures already in the trees rather
-than generated gradients:
+The Silesia rows above are text and binaries, so the `media` profiles had never been
+measured on media. Three files, chosen so each exercises a different part of the route:
 
 | file | what it is | bytes |
 |---|---|---|
-| `embedded.pdf` | a PDF with embedded images (`preflate-rs` samples) | 167,181 |
-| `fireworks.jpg` | a photographic JPEG (`zlib-ng` test data) | 123,093 |
-| `photo.jpg` | a photographic JPEG (`packJPG` test files) | 21,797 |
-| `ui.png` | a UI screenshot PNG (`ziptastic/docs`) | 89,580 |
+| `flate.pdf` | a PDF whose content stream is one FlateDecode stream — **synthetic**, built for this sweep | 78,168 |
+| `portrait.jpg` | a photographic JPEG (`docs/assets`) | 12,267 |
+| `ui.png` | a UI screenshot PNG (`docs/shot.png`) | 92,828 |
 
 `tools/sweep.py`, one thread:
 
-| file | `plain` | `media` | `xz` | `sevenzip` | `max-deflate` · `max-ratio-7z` · `fa-p` |
+| file | `plain` / `media` | `max-deflate` / `fa-p` | `max-ratio-7z` | `xz` | `sevenzip` |
 |---|---|---|---|---|---|
-| embedded.pdf | **123,011** (0.7357) | 123,011 | 142,620 (0.8531) | 142,651 (0.8533) | FAILED at `srep` |
-| fireworks.jpg | **100,282** (0.8147) | 100,282 | 123,168 (1.0006) | 123,225 (1.0011) | FAILED at `srep` |
-| photo.jpg | **17,295** (0.7935) | 17,295 | 21,584 (0.9902) | 21,621 (0.9919) | FAILED at `srep` |
-| ui.png | **56,529** (0.6310) | 56,529 | 83,308 (0.9300) | 83,309 (0.9300) | FAILED at `srep` |
+| flate.pdf | **42,922** (54.9%) 2.0 s | 61,520 (78.7%) 1.2 s | 55,299 (70.8%) 1.3 s | 78,172 (100.0%) 0.3 s | 78,270 (100.1%) 0.5 s |
+| portrait.jpg | 10,586 (86.3%) 0.25 s | **10,572** (86.2%) 0.22 s | 10,629 (86.7%) 0.4 s | 12,188 (99.4%) 0.2 s | 12,248 (99.9%) 0.4 s |
+| ui.png | **67,217** (72.4%) **24.5 s** | 72,144 (77.7%) **1.5 s** | 72,098 (77.7%) 1.4 s | 86,744 (93.5%) 0.3 s | 86,778 (93.5%) 1.0 s |
 
-Times: plain 7.07 / 0.93 / 0.36 / **33.36** s, xz 0.37 / 0.37 / 0.21 / 0.26 s, sevenzip
-0.52 / 0.67 / 0.50 / 0.40 s.
+**Every one of these chains used to report `FAILED at srep`.** They name `bin/srep.exe`,
+and SREP is "all rights reserved, not redistributable in any form", so they could not run
+for anyone. A step now declares `optional = true` and is dropped with a notice
+(heavenzip#92), and `precomp`'s exit 2 — "nothing to recompress", output still valid — is
+accepted via `ok_exit = 0,2` (heavenzip#94). So these are their first real numbers.
 
-Three things this settles:
+Four things they say:
 
-1. **The engine beats `xz -9` on every media file** — by 13.7% on the PDF, 18.6% and
-   19.9% on the two JPEGs, 32.1% on the PNG. On the JPEGs the win is brunsli: `plain`
-   gets 0.81 where `xz` gets 1.00, because a JPEG re-encoded from its DCT coefficients is
-   worth 19% and compressing the JPEG bytes is worth nothing.
-2. **`media` and `plain` are byte-identical on all four.** They are the same pipeline
-   (`ziptastic -9`) and differ only in `detect`, so the media route currently adds
-   nothing. If a media-specific chain is meant to exist, it does not exist yet.
-3. **The three chains cannot run at all.** They fail on `bin/srep.exe`, and SREP is
-   "all rights reserved, not redistributable in any form" (`TOOL_MANIFEST.md`,
-   `BUNDLING.md`). `BUNDLING.md` already says a missing SREP should degrade to
-   `ziptastic:lzma` with a notice rather than fail; nothing implements that. Issue #90.
+1. **The chains lose to `plain` on every file**, and on the PDF they lose badly: 61,520
+   against 42,922, a 30% regression. The engine's own precomp → numeric → block chain
+   already reaches inside the DEFLATE stream and then models what it finds; handing the
+   inflated bytes to `xz` throws that away.
+2. **`media` and `plain` are still byte-identical** — same pipeline (`ziptastic -9`),
+   different `detect`. The media route adds nothing, and on this evidence it should not
+   be given a chain of its own.
+3. **The PNG is a time trade, not a size trade.** `plain` is 7.3% smaller and **16×
+   slower** (24.5 s against 1.5 s for 93 KB). That is the `ui.png` cost recorded earlier
+   in this file, now measured against an alternative: if a caller cares about seconds per
+   screenshot more than 7%, the chain is the right answer even though it never wins on
+   size.
+4. **The JPEG is a wash** — 14 bytes between `plain` and `max-deflate`, and both beat
+   `xz` by 13%, because brunsli re-encodes from DCT coefficients while `xz` sees
+   compressed bytes.
 
-`ui.png` is worth its own note: 33 s for 88 KB, against 0.26 s for `xz`. The PNG path is
-where the engine's time goes on image content, and 33 s per screenshot is not a trade
-most callers would take without being told.
+The synthetic PDF is labelled because it is the one fixture here that is not real
+content. It is a valid PDF with one FlateDecode stream and no images, which is the shape
+`precomp` exists for; a real PDF with embedded JPEGs would exercise the brunsli path too.
 
 ## FreeArc's own baseline, and how to read it
 
