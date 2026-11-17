@@ -66,7 +66,13 @@ jobs:
           ./build/heavenzip detect tests/fixtures/archive.zip
           ./build/heavenzip detect tests/fixtures/notes.txt
           ./build/heavenzip compress tests/fixtures/notes.txt --dry-run
-          ./build/heavenzip compress tests/fixtures/random.bin --profile max-ratio --dry-run
+          ./build/heavenzip compress tests/fixtures/random.bin --profile plain --dry-run
+          # `max-ratio` is srep + paq8px and both are unshippable, so it now refuses
+          # with the reason instead of failing at the pre-flight — that is the correct
+          # answer for a chain with nothing runnable left. The chain that still has
+          # work to do without srep is `max-deflate`, and this asserts the drop is a
+          # notice rather than a refusal.
+          ./build/heavenzip compress tests/fixtures/image.png --profile max-deflate --dry-run
 
       - name: A profile that does not apply must refuse, not crash
         run: |

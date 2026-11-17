@@ -222,6 +222,14 @@ int do_compress(const fs::path& config_dir, const std::string& input, const std:
   const fs::path output = out.empty() ? fs::path(input + ".hzpkg") : fs::path(out);
   const Plan plan = build_plan(master, profile, name, input, output);
 
+  // Say what the chain lost before it runs. A dropped step changes what the archive
+  // is worth, so it is reported even when the run succeeds and even with --quiet
+  // semantics elsewhere: a smaller archive that quietly skipped a stage is the kind
+  // of silence that gets a tool distrusted.
+  for (const std::string& notice : plan.notices) {
+    std::cerr << kName << ": " << notice << "\n";
+  }
+
   if (dry_run) {
     std::cout << "profile: " << plan.profile << "  (detect = " << plan.detect << ", file is "
               << to_string(plan.found) << ")\n"
@@ -231,14 +239,6 @@ int do_compress(const fs::path& config_dir, const std::string& input, const std:
       std::cout << "[" << step.step << "]\n  " << step.shell_line() << "\n";
     }
     return 0;
-  }
-
-  // Say what the chain lost before it runs. A dropped step changes what the archive
-  // is worth, so it is reported even when the run succeeds and even with --quiet
-  // semantics elsewhere: a smaller archive that quietly skipped a stage is the kind
-  // of silence that gets a tool distrusted.
-  for (const std::string& notice : plan.notices) {
-    std::cerr << kName << ": " << notice << "\n";
   }
 
   // Pre-flight: every program must be resolvable before the first step runs. A
