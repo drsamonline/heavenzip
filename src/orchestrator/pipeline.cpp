@@ -415,6 +415,16 @@ RunOutcome run_reverse(const fs::path& manifest, const fs::path& out) {
                // file it was about to read.
                ? (i + 1 == steps.size() || out.empty() ? out : fs::path(steps[i + 1].produced))
                : fs::path());
+    // A manifest from before `produced` existed cannot place this payload. Refuse with
+    // the reason: the alternative is what this code did before — write nowhere and let
+    // the next step read a stale intermediate, which reported success for an archive
+    // that did not decode.
+    if (command.stdout_to_output && i + 1 != steps.size() && reverse_output.empty()) {
+      throw std::runtime_error(
+          manifest.string() + ": step `" + command.step +
+          "` writes to stdout and the manifest records no `produced` path for the step after it; "
+          "this manifest was written by an older heavenzip and cannot be reversed safely");
+    }
     {
       std::error_code ec;
       if (!reverse_output.empty()) fs::remove(reverse_output, ec);
