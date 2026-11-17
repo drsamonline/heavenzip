@@ -53,6 +53,10 @@ struct ReverseStep {
   // `-oFILE` is the case — this holds what precedes it, so the substitution rebuilds
   // the token instead of replacing it and dropping the switch.
   std::string out_prefix;
+  // What this step wrote going forward. The reverse of a stdout-writing step in the
+  // middle of a chain has no output argument, so this is the only way to know where
+  // its payload belongs.
+  std::string produced;
 };
 std::vector<ReverseStep> read_reverse_plan(const std::filesystem::path& manifest);
 

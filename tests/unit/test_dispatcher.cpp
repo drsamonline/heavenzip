@@ -31,32 +31,72 @@ void check(bool condition, const std::string& what, int line) {
 MasterConfig master() { return MasterConfig::load(g_config / "syc.ini"); }
 Profile profile(const std::string& name) { return Profile::load(g_config / "profiles" / (name + ".ini")); }
 
-void test_text_profile_plans_two_steps() {
+void test_text_profile_drops_the_unshippable_step() {
   const Plan plan = build_plan(master(), profile("text"), "text", g_fixtures / "notes.txt",
                                g_fixtures / "notes.txt.hzpkg");
-  CHECK(plan.steps.size() == 2);
-  CHECK(plan.steps[0].step == "srep");
-  CHECK(plan.steps[1].step == "ziptastic");
+  // `text` chains srep then ziptastic, and srep is "all rights reserved, not
+  // redistributable in any form", so on any machine that follows BUNDLING.md the plan
+  // is one step and there is a notice. A machine where the user has supplied srep
+  // gets two steps and no notice; both are correct, and the invariants below hold
+  // either way. Asserting `steps.size() == 2` made this test a statement about the
+  // machine rather than about the planner.
+  const bool have_srep = program_available("bin/srep.exe");
+  CHECK(plan.steps.size() == (have_srep ? 2u : 1u));
+  CHECK(plan.notices.size() == (have_srep ? 0u : 1u));
   CHECK(plan.found == FileClass::Text);
   CHECK(plan.output == g_fixtures / "notes.txt.hzpkg");
   CHECK(plan.manifest == g_fixtures / "notes.txt.hzpipeline");
 
-  // Step 0: its own bin and args, the input, and the intermediate it writes.
-  // The args carry a dictionary cap now: srep's default wants ~1.7 GB and dies on
-  // an ordinary machine, so `-l256m` is part of the profile, not a local tweak.
-  CHECK(plan.steps[0].program == "bin/srep.exe");
-  CHECK(plan.steps[0].argv.size() == 5);
-  CHECK(plan.steps[0].argv[1] == "-l256m");
-  CHECK(plan.steps[0].argv[2] == "-m3f");
-  CHECK(plan.steps[0].argv[3] == (g_fixtures / "notes.txt").string());
-  CHECK(plan.steps[0].argv[4].find(".tmp") != std::string::npos);
+  // The last step writes the archive and reads what the step before it produced —
+  // including when the step before it was dropped.
+  CHECK(plan.steps.back().step == "ziptastic");
+  CHECK(plan.steps.back().program == "bin/ziptastic.exe");
+  CHECK(plan.steps.back().argv.back() == plan.output.string());
+  CHECK(plan.steps.back().argv[plan.steps.back().argv.size() - 2] ==
+        (g_fixtures / "notes.txt").string());
 
-  // Step 1 reads what step 0 wrote and writes the output. The argv tail is
-  // [input, output] whatever the step's own arguments were.
-  CHECK(plan.steps[1].argv[plan.steps[1].argv.size() - 2] ==
-        plan.steps[0].argv[plan.steps[0].argv.size() - 1]);
-  CHECK(plan.steps[1].argv.back() == plan.output.string());
-  CHECK(plan.steps[1].program == "bin/ziptastic.exe");
+  // Nothing the bundle is not allowed to carry survives into the plan. This is the
+  // invariant that keeps the pre-flight from being the only thing between a profile
+  // and a half-run chain. It is stated as "srep is gone", not as "every program
+  // resolves": the engine's own path is relative to the directory heavenzip runs in,
+  // and ctest runs this from the build directory.
+  if (!have_srep) {
+    for (const StepCommand& step : plan.steps) {
+      CHECK(step.program.find("srep") == std::string::npos);
+    }
+    CHECK(plan.notices[0].find("srep") != std::string::npos);
+  }
+}
+
+void test_a_step_records_what_it_produced() {
+  const Plan plan = build_plan(master(), profile("text"), "text", g_fixtures / "notes.txt",
+                               g_fixtures / "notes.txt.hzpkg");
+  // `produced` is what the reverse pass uses to place the payload of a stdout-writing
+  // step that is not the last one. Step i produces what step i+1 consumes, and the
+  // last step produces the archive.
+  for (std::size_t i = 0; i + 1 < plan.steps.size(); ++i) {
+    CHECK(plan.steps[i].produced ==
+          plan.steps[i + 1].argv[plan.steps[i + 1].argv.size() - 2]);
+  }
+  CHECK(plan.steps.back().produced == plan.output.string());
+}
+
+void test_a_profile_whose_every_step_is_optional_and_missing_refuses() {
+  // `strong` is paq8px alone, and paq8px is GPL-2+ and never linked in. Dropping the
+  // only step leaves nothing to run, which is a refusal with the reason — not a
+  // silent no-op and not a crash.
+  bool threw = false;
+  std::string why;
+  try {
+    build_plan(master(), profile("strong"), "strong", g_fixtures / "notes.txt",
+               g_fixtures / "notes.txt.hzpkg");
+  } catch (const std::runtime_error& error) {
+    threw = true;
+    why = error.what();
+  }
+  CHECK(threw);
+  CHECK(why.find("cannot run") != std::string::npos);
+  CHECK(why.find("paq8px") != std::string::npos);
 }
 
 void test_a_media_profile_never_matches_a_text_file() {
@@ -74,11 +114,15 @@ void test_a_media_profile_never_matches_a_text_file() {
 }
 
 void test_any_matches_a_binary_file() {
-  // max-ratio declares `detect = any`, so it plans for a file nothing else claims.
-  const Plan plan = build_plan(master(), profile("max-ratio"), "max-ratio", g_fixtures / "random.bin",
+  // `plain` declares `detect = any`, so it plans for a file nothing else claims.
+  // This used `max-ratio`, whose every step is now declared optional — srep is
+  // all-rights-reserved and paq8px is GPL-2+ — so on a machine without either it
+  // correctly refuses instead of planning, and it stopped being a test of `detect`.
+  const Plan plan = build_plan(master(), profile("plain"), "plain", g_fixtures / "random.bin",
                                g_fixtures / "random.bin.hzpkg");
   CHECK(plan.found == FileClass::Binary);
-  CHECK(plan.steps.size() == 2);
+  CHECK(plan.steps.size() == 1);
+  CHECK(plan.steps[0].step == "ziptastic");
 }
 
 void test_a_step_without_bin_uses_ziptastic_bin() {
@@ -227,7 +271,9 @@ int main(int argc, char** argv) {
   g_fixtures = argv[2];
 
   const std::vector<Case> cases = {
-      {"text profile plans two steps", test_text_profile_plans_two_steps},
+      {"text profile drops the unshippable step", test_text_profile_drops_the_unshippable_step},
+      {"a step records what it produced", test_a_step_records_what_it_produced},
+      {"all-optional-and-missing refuses", test_a_profile_whose_every_step_is_optional_and_missing_refuses},
       {"media never matches text", test_a_media_profile_never_matches_a_text_file},
       {"any matches binary", test_any_matches_a_binary_file},
       {"step without bin uses ziptastic_bin", test_a_step_without_bin_uses_ziptastic_bin},

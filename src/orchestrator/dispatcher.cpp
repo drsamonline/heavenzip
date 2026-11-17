@@ -123,12 +123,40 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
   // Sentinel for "the reverse writes to stdout, so there is no argument to replace".
   constexpr std::size_t kNoReverseOutIndex = static_cast<std::size_t>(-1);
 
+  // Which steps will actually run. A step whose tool is missing and which the profile
+  // declares `optional` is dropped with a notice rather than taken as a refusal: the
+  // rest of the chain still compresses, and the alternative is a profile that can
+  // never run for anyone. SREP is the case that forced this — "all rights reserved,
+  // not redistributable in any form" — and `BUNDLING.md` already specified the
+  // behaviour ("should degrade to `ziptastic:lzma` with a one-line notice, not fail").
+  //
+  // Dropping happens here, not in the caller, so every caller agrees: `compress`,
+  // `bench` and `autotune` all see the same steps, and the manifest can only ever
+  // record a chain that ran.
+  std::vector<const Step*> kept;
+  for (const Step& step : profile.steps) {
+    const std::string program = step.bin.empty() ? master.ziptastic_bin : step.bin;
+    if (!step.optional || program_available(program)) {
+      kept.push_back(&step);
+      continue;
+    }
+    plan.notices.push_back("step `" + step.name + "` dropped: " + program +
+                           " is not present, and the profile declares it optional");
+  }
+  if (kept.empty()) {
+    std::ostringstream message;
+    message << "profile `" << profile_name
+            << "` cannot run: every step in it needs a tool that is not present on this machine";
+    for (const std::string& notice : plan.notices) message << "\n  " << notice;
+    throw std::runtime_error(message.str());
+  }
+
   // Step i reads what step i-1 wrote; the first reads the input, the last writes
   // the .hzpkg. The intermediates are named after the step so a partial run says
   // where it stopped.
   fs::path current = input;
-  for (std::size_t i = 0; i < profile.steps.size(); ++i) {
-    const Step& step = profile.steps[i];
+  for (std::size_t i = 0; i < kept.size(); ++i) {
+    const Step& step = *kept[i];
     StepCommand command;
     command.step = step.name;
     command.program = step.bin.empty() ? master.ziptastic_bin : step.bin;
@@ -140,8 +168,9 @@ Plan build_plan(const MasterConfig& master, const Profile& profile, const std::s
     const std::string resolved = resolve_program(command.program);
     command.argv.push_back(resolved.empty() ? command.program : resolved);
 
-    const bool last = (i + 1 == profile.steps.size());
+    const bool last = (i + 1 == kept.size());
     const fs::path next = last ? output : fs::path(output.string() + "." + step.name + ".tmp");
+    command.produced = next.string();
 
     // A step's arguments may name `{in}` and `{out}` anywhere. Without them the
     // input and output are appended in that order, which is what ziptastic, srep

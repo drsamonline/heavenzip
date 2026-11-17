@@ -58,6 +58,13 @@ struct Step {
   // file: `xz -9 -c IN`, `gzip -c IN`, `zstd -c IN`. Without this a profile could not
   // describe them at all, because the step's stdout went to a log.
   bool stdout_to_output = false;
+  // A tool the bundle is not allowed to carry, or one the user is expected to
+  // supply. A missing *required* tool is a refusal: the chain cannot do what the
+  // profile says. A missing optional tool is a drop, with a notice, because the rest
+  // of the chain still compresses — SREP is "all rights reserved, not
+  // redistributable in any form", so a profile that chains it can never carry it and
+  // `BUNDLING.md` already says such a step must fall back rather than fail.
+  bool optional = false;
 };
 
 struct Profile {

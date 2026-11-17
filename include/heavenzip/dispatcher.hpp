@@ -28,6 +28,12 @@ struct StepCommand {
   // True when the program writes its result to stdout, so the runner points stdout
   // at the output file instead of at a log.
   bool stdout_to_output = false;
+  // The path this step writes: the next step's input, or the archive for the last
+  // step. Recorded because the reverse pass needs it and cannot derive it — a
+  // stdout-writing step has no output argument to substitute, so without this the
+  // reverse of such a step wrote its payload to the caller's terminal and left
+  // nothing on disk for the next reverse step to read.
+  std::string produced;
 
   // Shell-quoted for humans: `bin/ziptastic.exe -c lzma -9 "in put.txt"`.
   std::string shell_line() const;
@@ -41,6 +47,10 @@ struct Plan {
   std::filesystem::path output;    // <input>.hzpkg unless --out
   std::filesystem::path manifest;  // <input>.hzpipeline
   std::vector<StepCommand> steps;
+  // Steps the profile declared `optional` and whose tool is not present. The plan is
+  // what actually runs, so these are already gone from `steps`; the notices exist so
+  // the caller can say so once, in a sentence, instead of failing or staying silent.
+  std::vector<std::string> notices;
 };
 
 // True when the program can be found: an explicit path must exist, a bare name is

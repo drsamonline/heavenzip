@@ -177,6 +177,20 @@ void test_every_class_a_profile_may_name_is_accepted() {
   }
 }
 
+void test_optional_step_key_is_parsed() {
+  // `optional` says the step may be dropped when its tool is absent. It is the only
+  // way a profile can chain a tool the bundle is not allowed to carry — SREP — and
+  // still be usable, so the parser has to accept it and default it to false.
+  const Profile profile = Profile::parse(
+      "[route]\ndetect = any\npipeline = one,two\n"
+      "[one]\nargs = -9\noptional = true\n"
+      "[two]\nargs = -9\n",
+      "inline");
+  CHECK(profile.steps.size() == 2);
+  CHECK(profile.steps[0].optional);
+  CHECK(!profile.steps[1].optional);
+}
+
 void test_unknown_key_in_step_is_an_error() {
   EXPECT_ERROR(
       [] {
@@ -249,6 +263,7 @@ int main(int argc, char** argv) {
       {"pipeline names existing sections", test_pipeline_must_name_existing_sections},
       {"detect value checked", test_detect_value_is_checked},
       {"every nameable class is accepted", test_every_class_a_profile_may_name_is_accepted},
+      {"optional step key is parsed", test_optional_step_key_is_parsed},
       {"unknown step key", test_unknown_key_in_step_is_an_error},
       {"reverse_args parsed", test_reverse_args_are_parsed},
       {"repeated step is a cycle", test_a_repeated_step_is_a_cycle},

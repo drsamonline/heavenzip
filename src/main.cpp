@@ -117,6 +117,14 @@ int do_validate(const fs::path& config_dir, bool require_bins) {
     for (const Step& step : profile.steps) {
       const std::string bin = step.bin.empty() ? master.ziptastic_bin : step.bin;
       if (program_available(bin)) continue;
+      // A step the profile declares `optional` is expected to be absent on a machine
+      // that has not supplied the tool — that is the whole point of the declaration —
+      // so it is a note, not a warning, and never a --require-bins failure.
+      if (step.optional) {
+        std::cout << "  note  " << name << "/" << step.name << ": `" << bin
+                  << "` is not present; the step is optional and will be dropped\n";
+        continue;
+      }
       std::cout << "  warn  " << name << "/" << step.name << ": `" << bin
                 << "` is not present" << (require_bins ? "" : " (run sync-binaries, or pass --require-bins to fail)")
                 << "\n";
@@ -213,6 +221,14 @@ int do_compress(const fs::path& config_dir, const std::string& input, const std:
   const Profile profile = Profile::load(config_dir / "profiles" / (name + ".ini"));
   const fs::path output = out.empty() ? fs::path(input + ".hzpkg") : fs::path(out);
   const Plan plan = build_plan(master, profile, name, input, output);
+
+  // Say what the chain lost before it runs. A dropped step changes what the archive
+  // is worth, so it is reported even when the run succeeds and even with --quiet
+  // semantics elsewhere: a smaller archive that quietly skipped a stage is the kind
+  // of silence that gets a tool distrusted.
+  for (const std::string& notice : plan.notices) {
+    std::cerr << kName << ": " << notice << "\n";
+  }
 
   if (dry_run) {
     std::cout << "profile: " << plan.profile << "  (detect = " << plan.detect << ", file is "
@@ -709,16 +725,27 @@ int do_bench(const fs::path& config_dir, const fs::path& corpus, bool require_bi
       const Detection found = detect_file(file);
       if (!matches(profile.detect, found.value)) continue;
 
+      // A missing *required* tool skips the row; a missing *optional* one does not.
+      // Bench used to treat both as "skipped (bin missing)", which meant the three
+      // media chains reported nothing on every corpus — the same reason the sweep
+      // showed `n/a` instead of a number. The rule is build_plan's rule.
       bool available = true;
+      std::size_t dropped = 0;
       for (const Step& step : profile.steps) {
         const std::string bin = step.bin.empty() ? master.ziptastic_bin : step.bin;
-        if (!program_available(bin)) available = false;
+        if (program_available(bin)) continue;
+        if (step.optional) {
+          ++dropped;
+          continue;
+        }
+        available = false;
       }
+      if (available && dropped == profile.steps.size()) available = false;  // nothing left to run
       if (!available) {
         if (require_bins) ++failures;
         std::printf("%-12s %-26s %-8s %-9s %-9s %-7s %s\n", name.c_str(),
                     file.filename().string().c_str(), to_string(found.value).c_str(), "-", "-", "-",
-                    "skipped (bin missing)");
+                    dropped == profile.steps.size() ? "skipped (nothing runnable)" : "skipped (bin missing)");
         continue;
       }
 
@@ -739,9 +766,9 @@ int do_bench(const fs::path& config_dir, const fs::path& corpus, bool require_bi
         for (const StepOutcome& step : outcome.steps) seconds += step.seconds;
         char ratio[16];
         std::snprintf(ratio, sizeof ratio, "%.1f%%", packed * 100.0 / raw);
-        std::printf("%-12s %-26s %-8s %-9.0f %-9.0f %-7s %.2fs\n", name.c_str(),
+        std::printf("%-12s %-26s %-8s %-9.0f %-9.0f %-7s %.2fs%s\n", name.c_str(),
                     file.filename().string().c_str(), to_string(found.value).c_str(), raw, packed,
-                    ratio, seconds);
+                    ratio, seconds, dropped > 0 ? "  (ran without an optional tool)" : "");
         fs::remove(out);
       } catch (const std::exception& error) {
         ++failures;
