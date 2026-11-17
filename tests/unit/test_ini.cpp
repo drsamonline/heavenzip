@@ -57,7 +57,7 @@ void test_master_config_parses() {
   CHECK(master.log_level == "info");
   CHECK(!master.ziptastic_bin.empty());
   CHECK(master.default_profile == "plain");
-  CHECK(master.available.size() == 17);
+  CHECK(master.available.size() == 18);
   CHECK(master.available[0] == "plain");
   CHECK(master.available[4] == "max-ratio");
   // The system-tool profiles: zstd, xz, gzip, looked up on PATH.
@@ -67,10 +67,11 @@ void test_master_config_parses() {
   CHECK(master.available[8] == "freearc");
   CHECK(master.available[9] == "fa-p");
   CHECK(master.available[10] == "audio");
-  CHECK(master.available[11] == "fa-precomp-srep-zstd");
-  CHECK(master.available[13] == "zstd");
-  CHECK(master.available[15] == "gzip");
-  CHECK(master.available[16] == "zpaq");
+  CHECK(master.available[11] == "bmp");
+  CHECK(master.available[12] == "fa-precomp-srep-zstd");
+  CHECK(master.available[14] == "zstd");
+  CHECK(master.available[16] == "gzip");
+  CHECK(master.available[17] == "zpaq");
 }
 
 void test_every_shipped_profile_parses() {
@@ -157,7 +158,23 @@ void test_pipeline_must_name_existing_sections() {
 void test_detect_value_is_checked() {
   EXPECT_ERROR(
       [] { Profile::parse("[route]\ndetect = video\npipeline = one\n[one]\nargs = -9\n", "inline"); },
-      "not one of text, media, archive, any");
+      "not one of text, media, wav, bmp, archive, binary, any");
+}
+
+void test_every_class_a_profile_may_name_is_accepted() {
+  // The grammar's table in PROFILES.md is the promise; this is the check that the
+  // parser keeps it. `binary` was documented for two sessions and rejected.
+  for (const char* detect : {"text", "media", "wav", "bmp", "archive", "binary", "any"}) {
+    const std::string text = std::string("[route]\ndetect = ") + detect +
+                             "\npipeline = one\n[one]\nargs = -9\n";
+    bool threw = false;
+    try {
+      Profile::parse(text, detect);
+    } catch (const std::exception&) {
+      threw = true;
+    }
+    CHECK(!threw);
+  }
 }
 
 void test_unknown_key_in_step_is_an_error() {
@@ -231,6 +248,7 @@ int main(int argc, char** argv) {
       {"route mandatory", test_route_section_is_mandatory},
       {"pipeline names existing sections", test_pipeline_must_name_existing_sections},
       {"detect value checked", test_detect_value_is_checked},
+      {"every nameable class is accepted", test_every_class_a_profile_may_name_is_accepted},
       {"unknown step key", test_unknown_key_in_step_is_an_error},
       {"reverse_args parsed", test_reverse_args_are_parsed},
       {"repeated step is a cycle", test_a_repeated_step_is_a_cycle},

@@ -24,6 +24,31 @@ def main() -> None:
     write("video.mp4", b"\x00\x00\x00\x18ftypisom" + b"\x00" * 120)
     write("document.pdf", b"%PDF-1.7\n1 0 obj\n" + b"\x00" * 120)
 
+    # --- wav and bmp: their own classes, not media ---
+    # 16-bit PCM stereo, 8 frames. RIFF/WAVE, a 16-byte `fmt ` chunk and a `data`
+    # chunk: the exact shape the audio route (xz --delta=dist=2) is written for.
+    samples = struct.pack("<8h", 0, 100, 200, 300, 400, 500, 600, 700)
+    fmt = struct.pack("<HHIIHH", 1, 2, 8000, 32000, 4, 16)
+    write("tone.wav",
+          b"RIFF" + struct.pack("<I", 4 + 8 + len(fmt) + 8 + len(samples)) + b"WAVE" +
+          b"fmt " + struct.pack("<I", len(fmt)) + fmt +
+          b"data" + struct.pack("<I", len(samples)) + samples)
+    # The same container with format tag 6 (A-law): a WAVE file, but not one the
+    # delta route can help, so it must stay `binary`.
+    alaw = bytearray((pathlib.Path(HERE) / "tone.wav").read_bytes())
+    alaw[20:22] = struct.pack("<H", 6)
+    write("alaw.wav", bytes(alaw))
+    # Uncompressed 2x2 24-bit BMP: BM, 14-byte file header, 40-byte BITMAPINFOHEADER,
+    # BI_RGB, four pixels.
+    dib = struct.pack("<IiiHHIIiiII", 40, 2, 2, 1, 24, 0, 16, 2835, 2835, 0, 0)
+    pixels = b"\x00\x00\xff" * 2 + b"\xff\x00\x00" * 2
+    write("image.bmp", b"BM" + struct.pack("<IHHI", 14 + len(dib) + len(pixels), 0, 0,
+                                           14 + len(dib)) + dib + pixels)
+    # BI_RLE8: a bitmap, but not one the colour-plane split can claim.
+    rle = bytearray((pathlib.Path(HERE) / "image.bmp").read_bytes())
+    rle[30:34] = struct.pack("<I", 1)
+    write("rle.bmp", bytes(rle))
+
     # --- archives ---
     write("archive.zip", b"PK\x03\x04\x14\x00\x00\x00" + b"\x00" * 120)
     write("archive.7z", b"7z\xbc\xaf\x27\x1c" + b"\x00" * 120)

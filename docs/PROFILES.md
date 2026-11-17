@@ -23,7 +23,7 @@ command and nothing else.
 
 | Section | Keys | Rules |
 |---|---|---|
-| `[route]` | `detect`, `pipeline` | both required; `detect` is one of `text`, `media`, `archive`, `any` (or `binary`); `pipeline` is a comma-separated list of step names, in order |
+| `[route]` | `detect`, `pipeline` | both required; `detect` is one of `text`, `media`, `wav`, `bmp`, `archive`, `binary`, `any`; `pipeline` is a comma-separated list of step names, in order |
 | one section per step | `bin`, `args`, `reverse_args` | `bin` optional (defaults to `ziptastic_bin`); `args` passed verbatim; `reverse_args` optional, see below |
 
 Anything else is an error, with the file and the line:
@@ -32,7 +32,7 @@ Anything else is an error, with the file and the line:
 |---|---|
 | no `[route]` | `missing required [route] section` |
 | no `detect` or `pipeline` | `[route] is missing required key ...` |
-| `detect = video` | `... is not one of text, media, archive, any` |
+| `detect = video` | `... is not one of text, media, wav, bmp, archive, binary, any` |
 | a step named in `pipeline` with no section | `pipeline names step 'x' but there is no [x] section` |
 | a section not named in `pipeline` | `[x] is not named in pipeline` |
 | the same step twice | `pipeline names step 'x' twice; a pipeline is linear and a repeated step is a cycle` |
@@ -50,9 +50,18 @@ class matches only that class. See `heavenzip detect <file>` for what any file i
 |---|---|
 | `text` | no NUL in the first 4 KiB, and ≥95% printable ASCII or valid UTF-8 |
 | `media` | JPEG, PNG, GIF, MP3, MP4, PDF |
+| `wav` | RIFF or RF64 `WAVE`, a `fmt ` chunk that is integer PCM at 16/24/32 bits or 32-bit IEEE float, 1–8 channels, and a `data` chunk |
+| `bmp` | `BM` with a DIB header size Microsoft has shipped (12/40/52/56/64/108/124) and BI_RGB |
 | `archive` | ZIP, 7z, gzip, bzip2, xz, tar |
 | `binary` | everything else |
 | `any` | all of the above |
+
+`wav` and `bmp` are narrower than their containers on purpose, because a class is a
+route and not a container check. An A-law or ADPCM WAVE file is still a WAVE file, but
+the audio route is a delta filter with a 2-byte stride and it makes companded audio
+bigger, so those files are `binary`. An RLE or BITFIELDS bitmap has no colour planes to
+split, so it is `binary` too. Both classes are decided by content: a WAV renamed `.dat`
+is still `wav`.
 
 ## Steps, and the reverse of a step
 
