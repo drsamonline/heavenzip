@@ -278,7 +278,10 @@ jobs:
             pkg/preflate-windows-x86_64.tar.gz.sha256
 
   publish:
-    needs: preflate
+    # Both, not just preflate: the Windows bundle is uploaded by the heavenzip job, and
+    # with only `needs: preflate` this job started before that upload existed and failed
+    # with "Artifact not found for name: heavenzip-windows".
+    needs: [preflate, heavenzip]
     if: inputs.release_tag != ''
     runs-on: ubuntu-latest
     steps:
