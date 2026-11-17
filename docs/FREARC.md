@@ -73,8 +73,25 @@ mechanical:
 | `basename` collides with glibc's `noexcept` declaration | `-Dbasename=fa_basename` |
 | `C_MM.cpp` and the crypto layer need include paths | `-I. -ICompression -ICompression/_Encryption/headers` |
 
-`arc` (6.9 MB) and `unarc` (4.9 MB) both link, and a 22,235-byte PNG round-trips
-byte-exactly through them. Extraction needs `unarc` beside `arc` — `arc x` shells out to
+`tools/build-freearc.py` does this reproducibly: `arc` and `unarc` both link, and a
+22,235-byte PNG round-trips byte-exactly through them.
+
+**But `arc` segfaults on `lzma`.** Measured with the script-built binary:
+
+| method | result |
+|---|---|
+| `storing` | 22,416 bytes |
+| `tor` | 22,416 |
+| `lzp` | 22,416 |
+| `grzip` | 22,273 |
+| `rep` | 22,448 |
+| `ppmd` | 22,472 |
+| **`lzma`** | **SIGSEGV (exit 139)** |
+| `-m4`, `-m5`, `-mx` | SIGSEGV — they resolve to `lzma` |
+
+LZMA is the point of the archiver, so `arc` is **not** wired into the bundle yet. An
+archiver whose best codec crashes is worse than no archiver: it would fail on exactly
+the files someone reaches for it to compress. Extraction needs `unarc` beside `arc` — `arc x` shells out to
 it, and without it the error is "failed to execute unarc", which reads like a missing
 feature rather than a missing binary.
 
