@@ -1,0 +1,82 @@
+# FreeArc's compression methods, and what heavenzip does with them
+
+FreeArc does not use an `arc.ini` any more; its method table lives in
+`FA-master/0.20/CompressionMethod.lua`, in a `[Compression methods]` section. This file
+maps that table onto heavenzip's profiles: what transferred, what did not, and why.
+
+## The table, as FreeArc states it
+
+```lua
+x   = 9              ; highest compression using only internal algorithms
+ax  = 9p             ; highest involving external compressors
+0   = storing
+
+#   = #rep+#exe+#xb / $obj=#b / $text=#t
+#b  = #rep + #bx                      ; binary: rep, then the binary chain
+#xb = delta + #binary                 ; a delta filter before LZMA
+#t  = dict:p:128m:80% + lzp:160m:… + ppmd:16:384m   ; text
+#xt = dict: 128m:75% + #binary        ; text, fast decompression
+
+9binary = lzma:254m:max
+9rep    = rep:2040m
+```
+
+Two ideas carry all the value:
+
+1. **A repeat filter runs before the entropy coder.** `#rep + #bx` is `srep` (FreeArc's
+   `rep`) then LZMA. The filter exposes long repeats; LZMA then codes what is left.
+2. **The chain is chosen per content class**, not per file — `$text`, `$obj`, `$wav`,
+   `$bmp` each get their own route.
+
+## What transferred
+
+| FreeArc | heavenzip | Note |
+|---|---|---|
+| `#rep + #bx` | `max-ratio`, `max-ratio-7z` | srep → paq8px / 7-Zip |
+| `#xb = delta + #binary` | — | no delta filter (see below) |
+| `#t` (dict + lzp + ppmd) | `text` (srep → ziptastic) | the filters differ, the shape does not |
+| per-type routing | `detect = text / media / binary` | the same idea, expressed as routes |
+| `-mx9` | `max-ratio`, `max-deflate`, `max-ratio-7z` | one per terminal stage |
+
+## What did not, and why
+
+**`delta` before LZMA.** xz has a delta filter (`--delta=dist=N --lzma2=…`), but it made
+a base64 text file **worse**: 71,428 bytes against 62,640 without it. Delta helps
+executables and PCM, not arbitrary binary, and choosing it needs FreeArc's `$obj` class
+detection, which heavenzip does not have. Recorded as measured-and-rejected rather than
+guessed at.
+
+**Dictionary size.** FreeArc's `9binary` is `lzma:254m:max`. xz can express it —
+`--lzma2=preset=9,dict=256MiB` — but the encoder needs several times the dictionary in
+RAM and **fails with "Cannot allocate memory"** on a 2 GB machine. `dict=64MiB` (preset
+9's own default) is what this box can do; 128 MiB already fails. A template that cannot
+run where it is tested is not a template.
+
+**`lzp`, `ppmd`, `dict` (FreeArc's PPM front-ends), `grzip`, `tor`, `tta`.** None are in
+the vault and none are bundled. `paq8px` covers the same ground from a different
+direction — a context-mixing model rather than a PPM dictionary — and is already here.
+
+**`storing` as a first stage.** FreeArc's `0 = storing` is a real stage: store the file
+uncompressed so a later filter sees it whole. heavenzip's `plain` profile is the engine
+at its default, which is not the same thing, and a true `store` stage is not written.
+
+## The memory ceiling, measured
+
+| dictionary | result on this box (2 GB) |
+|---|---|
+| 64 MiB (preset 9 default) | 62,640 bytes for an 81 KB base64 file |
+| 128 MiB | **Cannot allocate memory** |
+| 256 MiB | **Cannot allocate memory** |
+
+FreeArc's presets assume a desktop with gigabytes to spare. A bundle that ships to
+laptops should keep preset 9's default and let `autotune` say when a bigger dictionary
+would have paid — on a machine that has the memory.
+
+## Where to look
+
+- `FA-master/0.20/CompressionMethod.lua` — the `[Compression methods]` table itself.
+- `FA-master/0.20/Compression.lua` — how a method string (`-mc+precomp+xtor`) is
+  manipulated: add, replace, remove compressors per group.
+- `FA-master/Lua-code.md` — `DecodeMethod('exe2+4xb') ==
+  'dispack070+delta+4x4:lzma:96mb:normal:16:mc8'`, which is the expansion the table
+  above performs.
