@@ -211,6 +211,21 @@ jobs:
           cmp /tmp/s.txt /tmp/s.back
           echo "srep round trip ok"
 
+      - name: Build 7-Zip without make
+        # 7-Zip ships makefiles, not CMake, and the container has no make. The script
+        # reads the makefile for its object list and rules instead of running it.
+        run: |
+          set -euo pipefail
+          CXX=/usr/local/bin/zig-cxx ZIG_TARGET=x86_64-linux-gnu.2.28 \
+            python3 tools/build-7z.py /tmp/hcs/old/7z /tmp/7z
+          /tmp/7z >/dev/null 2>&1 || true
+          head -c 20000 /dev/urandom | base64 > /tmp/s.txt
+          cd /tmp && rm -rf t7 && mkdir t7 && cd t7 && cp /tmp/s.txt .
+          /tmp/7z a o.7z s.txt >/dev/null
+          /tmp/7z x o.7z -o./x -y >/dev/null
+          cmp s.txt x/s.txt
+          echo "7z round-trips"
+
       - name: Build xz and precomp, statically
         # Both are CMake projects in the vault, and both are needed by the pipelines:
         # xz is the last stage of the compression chains, precomp the first for files
@@ -291,6 +306,9 @@ jobs:
           cp /tmp/br/brotli stage/heavenzip/bin/brotli
           cp /tmp/xz/xz stage/heavenzip/bin/xz
           cp /tmp/pc/precomp stage/heavenzip/bin/precomp
+          cp /tmp/7z stage/heavenzip/bin/7z
+          cp tools/7z-wrap stage/heavenzip/bin/7z-wrap
+          chmod +x stage/heavenzip/bin/7z-wrap
           cp -r config stage/heavenzip/config
           cp LICENSE NOTICE README.md stage/heavenzip/
           cp docs/PACKAGING.md docs/TOOL_MANIFEST.md docs/PROFILES.md stage/heavenzip/docs/
@@ -315,7 +333,7 @@ jobs:
           # executable: the round trip below failed with "exec bin/ziptastic:
           # Permission denied" while every byte was correct.
           chmod +x stage/heavenzip/heavenzip stage/heavenzip/bin/*
-          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep bin/brotli bin/xz bin/precomp heavenzip > SHA256SUMS )
+          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep bin/brotli bin/xz bin/precomp bin/7z heavenzip > SHA256SUMS )
           ( cd stage && tar -czf "heavenzip-${VERSION}-linux-x86_64.tar.gz" heavenzip )
           # Name the file, not the staging path: `sha256sum -c` against a line
           # reading `stage/heavenzip-...` fails for anyone who downloaded just the

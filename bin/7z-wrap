@@ -1,0 +1,52 @@
+#!/bin/sh
+# 7z-wrap — adapt 7-Zip's archive CLI to the one-file-in, one-file-out shape a
+# heavenzip step needs.
+#
+#   7z-wrap c IN OUT     archive IN into OUT
+#   7z-wrap d IN OUT     restore OUT from the archive IN
+#
+# 7-Zip is an archiver: `7z a ARCHIVE FILES` and `7z x ARCHIVE -oDIR`. It stores a
+# file under the name it was given and extracts into a directory, so the payload is
+# staged as `payload` in a temporary directory. That keeps the stored name constant,
+# which is what makes the restore predictable.
+#
+# SEVENZIP_BIN overrides the binary; by default it is the one beside this script.
+set -eu
+
+# Everything must be absolute before the first cd: a relative OUT would be created
+# inside the staging directory and deleted with it.
+abspath() {
+  case "$1" in
+    /*) printf '%s\n' "$1" ;;
+    *)  printf '%s/%s\n' "$(pwd)" "$1" ;;
+  esac
+}
+
+mode="${1:?usage: 7z-wrap (c|d) IN OUT}"
+in="${2:?usage: 7z-wrap (c|d) IN OUT}"
+out="${3:?usage: 7z-wrap (c|d) IN OUT}"
+
+SEVENZIP="$(abspath "${SEVENZIP_BIN:-$(dirname "$0")/7z}")"
+in="$(abspath "$in")"
+out="$(abspath "$out")"
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT INT TERM
+
+case "$mode" in
+  c)
+    cp "$in" "$work/payload"
+    # -mx=9 is the maximum for the default LZMA2 method; -bso0/-bsp0 keep 7-Zip's
+    # progress off stdout, which heavenzip treats as the step's log.
+    ( cd "$work" && "$SEVENZIP" a "$out" payload -mx=9 -bso0 -bsp0 >/dev/null )
+    ;;
+  d)
+    ( cd "$work" && "$SEVENZIP" x "$in" -o"$work" -y -bso0 -bsp0 >/dev/null )
+    [ -f "$work/payload" ] || { echo "7z-wrap: nothing extracted" >&2; exit 1; }
+    mv "$work/payload" "$out"
+    ;;
+  *)
+    echo "7z-wrap: unknown mode '$mode' (use c or d)" >&2
+    exit 2
+    ;;
+esac
