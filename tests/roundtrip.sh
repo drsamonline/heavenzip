@@ -161,6 +161,49 @@ cmp -s "$WORK/input.txt" "$WORK/stdout-back.txt" || {
 sed -i 's/^available = .*/available = two-step/' "$WORK/config/syc.ini"
 sed -i 's/^default = .*/default = two-step/' "$WORK/config/syc.ini"
 
+echo "-- a restore target glued to its switch"
+# precomp takes `-oFILE`, not `-o FILE`: the path sits inside a token. The scan for
+# where the restore goes compared whole tokens and found nothing, so the last step
+# wrote over the user's input instead of the requested --out, and the archive then
+# "did not restore".
+cat > "$WORK/bin/glued" <<'SH'
+#!/usr/bin/env bash
+# `-oFILE IN` copies IN to FILE; `-r -oFILE IN` copies IN back to FILE
+out=""; restore=0
+for arg in "$@"; do
+  case "$arg" in
+    -o*) out="${arg#-o}" ;;
+    -r) restore=1 ;;
+    *) in="$arg" ;;
+  esac
+done
+[ -n "$out" ] && [ -n "$in" ] || { echo "glued: need -oFILE and IN" >&2; exit 2; }
+cp "$in" "$out"
+SH
+chmod +x "$WORK/bin/glued"
+cat > "$WORK/config/profiles/glued.ini" <<INI
+[route]
+detect = any
+pipeline = glued
+
+[glued]
+bin = $WORK/bin/glued
+args = -o{out} {in}
+reverse_args = -r -o{out} {in}
+INI
+sed -i 's/^available = .*/available = glued/' "$WORK/config/syc.ini"
+sed -i 's/^default = .*/default = glued/' "$WORK/config/syc.ini"
+"$BIN" compress "$WORK/input.txt" --config "$WORK/config" >/dev/null || {
+  echo "FAIL: a glued-output step could not compress"; exit 1; }
+"$BIN" decompress "$WORK/input.txt.hzpkg" --config "$WORK/config" --out "$WORK/glued-back.txt" >/dev/null || {
+  echo "FAIL: a glued-output step could not decompress"; exit 1; }
+cmp -s "$WORK/input.txt" "$WORK/glued-back.txt" || {
+  echo "FAIL: --out was ignored for a glued restore target"; exit 1; }
+# And the input must still be there: the bug overwrote it.
+cmp -s "$WORK/input.txt" "$WORK/input.txt" || { echo "FAIL: the input was destroyed"; exit 1; }
+sed -i 's/^available = .*/available = two-step/' "$WORK/config/syc.ini"
+sed -i 's/^default = .*/default = two-step/' "$WORK/config/syc.ini"
+
 echo "-- a missing binary must refuse before touching the input"
 cat > "$WORK/config/profiles/two-step.ini" <<INI
 [route]

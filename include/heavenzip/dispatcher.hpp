@@ -23,6 +23,8 @@ struct StepCommand {
   // `tool d IN OUT` convention, but brotli-shaped tools put it in the middle
   // (`-o OUT IN`), so the index is recorded rather than assumed.
   std::size_t reverse_out_index = 0;
+  // What precedes the restore target when it sits inside a token (`-oFILE`).
+  std::string reverse_out_prefix;
   // True when the program writes its result to stdout, so the runner points stdout
   // at the output file instead of at a log.
   bool stdout_to_output = false;

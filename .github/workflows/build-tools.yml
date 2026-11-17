@@ -211,6 +211,34 @@ jobs:
           cmp /tmp/s.txt /tmp/s.back
           echo "srep round trip ok"
 
+      - name: Build xz and precomp, statically
+        # Both are CMake projects in the vault, and both are needed by the pipelines:
+        # xz is the last stage of the compression chains, precomp the first for files
+        # that carry DEFLATE streams inside a container.
+        run: |
+          set -euo pipefail
+          cmake -S /tmp/hcs/old/xz-master -B /tmp/xz -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_C_COMPILER=/usr/local/bin/zig-cc -DCMAKE_CXX_COMPILER=/usr/local/bin/zig-cxx
+          cmake --build /tmp/xz -j 2 --target xz
+          /tmp/xz/xz --version
+          # precomp's vendored range coder calls assert() without including <assert.h>.
+          cmake -S /tmp/hcs/old/precomp-cpp-master -B /tmp/pc -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+            -DCMAKE_C_FLAGS="-include assert.h" -DCMAKE_CXX_FLAGS="-include assert.h" \
+            -DCMAKE_C_COMPILER=/usr/local/bin/zig-cc -DCMAKE_CXX_COMPILER=/usr/local/bin/zig-cxx
+          cmake --build /tmp/pc -j 2
+          /tmp/pc/precomp >/dev/null 2>&1 || true
+          # Both must round-trip a file before they are bundled.
+          head -c 40000 /dev/urandom | base64 > /tmp/x.txt
+          /tmp/xz/xz -9 -c /tmp/x.txt > /tmp/x.xz
+          /tmp/xz/xz -d -c /tmp/x.xz > /tmp/x.back
+          cmp /tmp/x.txt /tmp/x.back
+          /tmp/pc/precomp -cn -o/tmp/x.pcf /tmp/x.txt >/dev/null 2>&1
+          /tmp/pc/precomp -r -o/tmp/x.p.back /tmp/x.pcf >/dev/null 2>&1
+          cmp /tmp/x.txt /tmp/x.p.back
+          echo "xz and precomp round-trip"
+
       - name: Build brotli, statically
         # BUILD_SHARED_LIBS=OFF matters: the default build links five of brotli's own
         # shared objects, which a self-contained bundle cannot carry. Statically it
@@ -256,6 +284,8 @@ jobs:
           cp /tmp/pqbuild/paq8px stage/heavenzip/bin/paq8px
           cp /tmp/srep stage/heavenzip/bin/srep
           cp /tmp/br/brotli stage/heavenzip/bin/brotli
+          cp /tmp/xz/xz stage/heavenzip/bin/xz
+          cp /tmp/pc/precomp stage/heavenzip/bin/precomp
           cp -r config stage/heavenzip/config
           cp LICENSE NOTICE README.md stage/heavenzip/
           cp docs/PACKAGING.md docs/TOOL_MANIFEST.md docs/PROFILES.md stage/heavenzip/docs/
@@ -280,7 +310,7 @@ jobs:
           # executable: the round trip below failed with "exec bin/ziptastic:
           # Permission denied" while every byte was correct.
           chmod +x stage/heavenzip/heavenzip stage/heavenzip/bin/*
-          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep bin/brotli heavenzip > SHA256SUMS )
+          ( cd stage/heavenzip && sha256sum bin/ziptastic bin/paq8px bin/srep bin/brotli bin/xz bin/precomp heavenzip > SHA256SUMS )
           ( cd stage && tar -czf "heavenzip-${VERSION}-linux-x86_64.tar.gz" heavenzip )
           # Name the file, not the staging path: `sha256sum -c` against a line
           # reading `stage/heavenzip-...` fails for anyone who downloaded just the
