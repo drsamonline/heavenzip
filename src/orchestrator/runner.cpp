@@ -7,7 +7,9 @@
 #include <stdexcept>
 
 #ifdef _WIN32
-#include <cstdlib>
+#include <windows.h>
+
+#include <vector>
 #else
 #include <fcntl.h>
 #include <sys/wait.h>
@@ -52,17 +54,60 @@ RunResult run_capture(const std::vector<std::string>& argv, const fs::path& stdo
   const auto started = std::chrono::steady_clock::now();
 
 #ifdef _WIN32
-  // Windows goes through the shell: CreateProcess with inherited handles is more
-  // code than this phase needs, and every command here is a plain executable with
-  // arguments we built ourselves. Quoted, so a path with spaces survives.
+  // CreateProcess with explicit handles, not `std::system`.
+  //
+  // The shell version built one string — `prog args > out 2> err` — and handed it to
+  // cmd.exe, whose quoting and redirection rules are its own. On the Windows runner
+  // that produced exit 1 with an empty stderr log: the program never ran, and the
+  // redirect files stayed empty, so the failure said nothing about why. Handles remove
+  // the shell from the path entirely.
+  //
+  // Windows takes one command line, not an argv array, so the tokens are quoted and
+  // joined. Every token here was built by this program, and quoting each one is what
+  // keeps a path with spaces in it a single argument.
   std::string line;
   for (const std::string& token : argv) {
     if (!line.empty()) line += ' ';
     line += quote(token);
   }
-  line += " > " + quote(stdout_path.string()) + " 2> " + quote(stderr_path.string());
-  const int status = std::system(line.c_str());
-  result.exit_code = status;
+
+  // Inheritable handles, so the child can use them.
+  SECURITY_ATTRIBUTES inheritable{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
+  HANDLE out = CreateFileA(stdout_path.string().c_str(), GENERIC_WRITE, FILE_SHARE_READ,
+                           &inheritable, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  HANDLE err = CreateFileA(stderr_path.string().c_str(), GENERIC_WRITE, FILE_SHARE_READ,
+                           &inheritable, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+  if (out == INVALID_HANDLE_VALUE || err == INVALID_HANDLE_VALUE) {
+    if (out != INVALID_HANDLE_VALUE) CloseHandle(out);
+    if (err != INVALID_HANDLE_VALUE) CloseHandle(err);
+    throw std::runtime_error("cannot open the step's log files: " + stdout_path.string());
+  }
+
+  STARTUPINFOA startup{};
+  startup.cb = sizeof(startup);
+  startup.dwFlags = STARTF_USESTDHANDLES;
+  startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+  startup.hStdOutput = out;
+  startup.hStdError = err;
+
+  PROCESS_INFORMATION child{};
+  std::vector<char> command_line(line.begin(), line.end());
+  command_line.push_back('\0');
+  const BOOL started = CreateProcessA(nullptr, command_line.data(), nullptr, nullptr,
+                                      TRUE, 0, nullptr, nullptr, &startup, &child);
+  CloseHandle(out);
+  CloseHandle(err);
+  if (!started) {
+    const DWORD why = GetLastError();
+    throw std::runtime_error("cannot start `" + argv.front() + "` (error " +
+                             std::to_string(why) + ")");
+  }
+  WaitForSingleObject(child.hProcess, INFINITE);
+  DWORD code = 0;
+  GetExitCodeProcess(child.hProcess, &code);
+  CloseHandle(child.hProcess);
+  CloseHandle(child.hThread);
+  result.exit_code = static_cast<int>(code);
 #else
   const pid_t pid = fork();
   if (pid < 0) throw std::runtime_error("fork failed");
