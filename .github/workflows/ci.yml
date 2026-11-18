@@ -55,6 +55,11 @@ jobs:
         # the plan complete. Runs after Test so `ctest -N` has a build to read.
         run: python3 tools/check-claims.py
 
+      - name: The similarity hash still groups near-duplicates
+        # No pytest step exists here, so the properties live in the tool itself.
+        # A test file CI never runs is worse than no test: it reads as coverage.
+        run: python3 tools/similarity.py --selftest
+
       - name: The phase-0 exit test, called the way a user calls it
         # ctest runs it too; this runs it from the repository root with no
         # arguments, which is how `config/` is found in practice.
