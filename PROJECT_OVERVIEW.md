@@ -333,6 +333,8 @@ hunting.
 | The UI | `app.js` |
 | The page | `index.html` |
 | Vendored libraries (read-only) | `vendor/` |
+| What is done, and what is left, with evidence | `docs/STATUS.md` |
+| Every enhancement on the menu, ranked | `docs/ENHANCEMENTS.md` |
 | The format, as the reader implements it | `docs/ZIPTASTIC.md` |
 | Why the encoder is not there | `docs/ZIPTASTIC.md` § *Why the encoder is not here* |
 | Engine choices and the store rule | `docs/COMPRESSION.md` |
